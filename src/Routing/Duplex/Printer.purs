@@ -47,10 +47,11 @@ run = printPath <<< applyFlipped emptyRouteState <<< unwrap
 
 printPath :: RouteState -> String
 printPath { segments, params, hash: hash' } =
-  joinWith "/" segments <> printParams params <> printHash hash'
+  printSegments segments <> printParams params <> printHash hash'
   where
-  printSegments =
-    joinWith "/" <<< map unsafeEncodeURIComponent
+  printSegments = case _ of
+    [""] -> "/"
+    xs -> joinWith "/" $ map unsafeEncodeURIComponent xs
 
   printParams [] = ""
   printParams ps = "?" <> joinWith "&" (uncurry printParam <$> ps)
