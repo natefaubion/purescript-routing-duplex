@@ -1,6 +1,8 @@
 module Routing.Duplex
   ( RouteDuplex(..)
   , RouteDuplex'
+  , parse
+  , print
   , prefix
   , path
   , root
@@ -61,6 +63,12 @@ instance applicativeRotueDuplex :: Applicative (RouteDuplex i) where
 instance profunctorRouteDuplex :: Profunctor RouteDuplex where
   dimap f g (RouteDuplex enc dec) = RouteDuplex (f >>> enc) (g <$> dec)
 
+parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteError o
+parse (RouteDuplex _ dec) = Parser.run dec
+
+print :: forall i o. RouteDuplex i o -> i -> String
+print (RouteDuplex enc _) = Printer.run <<< enc
+
 prefix :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 prefix s (RouteDuplex enc dec) = RouteDuplex (\a -> Printer.put s <> enc a) (Parser.prefix s dec)
 
@@ -86,19 +94,19 @@ flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   enc' _ = mempty
   dec' = Parser.default false (dec $> true)
 
-many1 :: forall f g a b.
+many1 :: forall f a b.
   Foldable f =>
-  Alt g =>
-  Applicative g =>
+  Alt f =>
+  Applicative f =>
   RouteDuplex a b ->
-  RouteDuplex (f a) (g b)
+  RouteDuplex (f a) (f b)
 many1 (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many1 dec)
 
-many :: forall f g a b.
+many :: forall f a b.
   Foldable f =>
-  Alternative g =>
+  Alternative f =>
   RouteDuplex a b ->
-  RouteDuplex (f a) (g b)
+  RouteDuplex (f a) (f b)
 many (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many dec)
 
 rest :: RouteDuplex' (Array String)

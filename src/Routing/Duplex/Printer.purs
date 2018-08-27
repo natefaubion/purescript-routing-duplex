@@ -1,38 +1,38 @@
 module Routing.Duplex.Printer
   ( RoutePrinter(..)
-  , printer
   , put
   , param
   , flag
   , hash
   , run
+  , printPath
   ) where
 
 import Prelude
 
 import Data.Array as Array
 import Data.Function (applyFlipped)
-import Data.Monoid.Endo (Endo(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..), uncurry)
 import Global.Unsafe (unsafeEncodeURIComponent)
 import Routing.Duplex.Types (RouteState, emptyRouteState)
 
-newtype RoutePrinter = RoutePrinter (Endo (->) RouteState)
+newtype RoutePrinter = RoutePrinter (RouteState -> RouteState)
 
-derive newtype instance semigroupRoutePrinter :: Semigroup RoutePrinter
-derive newtype instance monoidRoutePrinter :: Monoid RoutePrinter
 derive instance newtypeRoutePrinter :: Newtype RoutePrinter _
 
-printer :: (RouteState -> RouteState) -> RoutePrinter
-printer = RoutePrinter <<< Endo
+instance semigroupRoutePrinter :: Semigroup RoutePrinter where
+  append (RoutePrinter f) (RoutePrinter g) = RoutePrinter (f >>> g)
+
+instance monoidRoutePRinter :: Monoid RoutePrinter where
+  mempty = RoutePrinter identity
 
 put :: String -> RoutePrinter
-put str = printer \state -> state { segments = Array.snoc state.segments str }
+put str = RoutePrinter \state -> state { segments = Array.snoc state.segments str }
 
 param :: String -> String -> RoutePrinter
-param key val = printer \state -> state { params = Array.cons (Tuple key val) state.params }
+param key val = RoutePrinter \state -> state { params = Array.cons (Tuple key val) state.params }
 
 flag :: String -> Boolean -> RoutePrinter
 flag key val
@@ -40,14 +40,15 @@ flag key val
   | otherwise = mempty
 
 hash :: String -> RoutePrinter
-hash h = printer _ { hash = h }
+hash h = RoutePrinter _ { hash = h }
 
 run :: RoutePrinter -> String
-run = print <<< applyFlipped emptyRouteState <<< unwrap <<< unwrap
-  where
-  print { segments, params, hash: h } =
-    joinWith "/" segments <> printParams params <> printHash h
+run = printPath <<< applyFlipped emptyRouteState <<< unwrap
 
+printPath :: RouteState -> String
+printPath { segments, params, hash: hash' } =
+  joinWith "/" segments <> printParams params <> printHash hash'
+  where
   printSegments =
     joinWith "/" <<< map unsafeEncodeURIComponent
 

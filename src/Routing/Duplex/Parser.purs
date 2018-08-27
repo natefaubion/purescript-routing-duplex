@@ -3,6 +3,7 @@ module Routing.Duplex.Parser
   , RouteResult(..)
   , RouteParser(..)
   , runRouteParser
+  , parsePath
   , run
   , prefix
   , take
@@ -32,6 +33,8 @@ import Data.Array.NonEmpty as NEA
 import Data.Bifunctor (bimap, lmap)
 import Data.Either (Either(..))
 import Data.Foldable (foldl)
+import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Int as Int
 import Data.Lazy as Z
 import Data.Maybe (Maybe(..), maybe)
@@ -46,13 +49,20 @@ data RouteResult a
   = Fail RouteError
   | Success RouteState a
 
+derive instance eqRouteResult :: Eq a => Eq (RouteResult a)
 derive instance functorRouteResult :: Functor RouteResult
+derive instance genericRouteResult :: Generic (RouteResult a) _
+instance showRouteResult :: Show a => Show (RouteResult a) where show = genericShow
 
 data RouteError
   = Expected String String
   | ExpectedEndOfPath String
   | MissingParam String
   | EndOfPath
+
+derive instance eqRouteError :: Eq RouteError
+derive instance genericRouteError :: Generic RouteError _
+instance showRouteError :: Show RouteError where show = genericShow
 
 data RouteParser a
   = Alt (NonEmptyArray (RouteParser a))
@@ -144,35 +154,36 @@ runRouteParser = go
   goAlt _ res _ = res
 
 parsePath :: String -> RouteState
-parsePath = parsePath' <<< case _ of
-  "/" -> ""
-  str -> str
-
-parsePath' :: String -> RouteState
-parsePath' =
-  splitAt "?"
-    >>> bimap splitSegments (splitAt "#" >>> lmap splitParams)
+parsePath =
+  splitAt (flip Tuple "") "?"
+    >>> bimap splitSegments (splitAt (flip Tuple "") "#" >>> lmap splitParams)
     >>> toRouteState
   where
-  splitSegments =
-    split (Pattern "/") >>> map unsafeDecodeURIComponent
+  splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
+    ["", ""] -> [""]
+    xs -> map unsafeDecodeURIComponent xs
 
   splitParams =
-    split (Pattern "&") >>> map splitKeyValue
+    splitNonEmpty (Pattern "&") >>> map splitKeyValue
 
   splitKeyValue =
-    splitAt "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
+    splitAt (flip Tuple "") "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
+
+  splitNonEmpty _ "" = []
+  splitNonEmpty p s  = split p s
 
   toRouteState (Tuple segments (Tuple params h)) =
     { segments, params, hash: h }
 
-  splitAt p str =
+  splitAt k p str =
     case String.indexOf (Pattern p) str of
       Just ix -> Tuple (String.take ix str) (String.drop (ix + String.length p) str)
-      Nothing -> Tuple "" str
+      Nothing -> k str
 
-run :: forall a. RouteParser a -> String -> RouteResult a
-run p = parsePath >>> flip runRouteParser p
+run :: forall a. RouteParser a -> String -> Either RouteError a
+run p = parsePath >>> flip runRouteParser p >>> case _ of
+  Fail err -> Left err
+  Success _ res -> Right res
 
 prefix :: forall a. String -> RouteParser a -> RouteParser a
 prefix = Prefix
