@@ -1,0 +1,25 @@
+{
+  "name": "purescript-routing-duplex",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "output"
+  ],
+  "dependencies": {
+    "purescript-prelude": "^4.1.0",
+    "purescript-record": "^1.0.0",
+    "purescript-generics-rep": "^6.0.0",
+    "purescript-either": "^4.0.0",
+    "purescript-control": "^4.1.0",
+    "purescript-typelevel-prelude": "^3.0.0",
+    "purescript-arrays": "^5.0.0",
+    "purescript-globals": "^4.0.0",
+    "purescript-strings": "^4.0.0",
+    "purescript-lazy": "^4.0.0",
+    "purescript-profunctor": "^4.0.0"
+  },
+  "devDependencies": {
+    "purescript-psci-support": "^4.0.0"
+  }
+}
