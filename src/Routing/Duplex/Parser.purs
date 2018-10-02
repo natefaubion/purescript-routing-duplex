@@ -155,10 +155,14 @@ runRouteParser = go
 
 parsePath :: String -> RouteState
 parsePath =
-  splitAt (flip Tuple "") "?"
-    >>> bimap splitSegments (splitAt (flip Tuple "") "#" >>> lmap splitParams)
+  splitAt (flip Tuple "") "#"
+    >>> lmap splitPath
     >>> toRouteState
   where
+  splitPath =
+    splitAt (flip Tuple "") "?"
+      >>> bimap splitSegments splitParams
+
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
     ["", ""] -> [""]
     xs -> map unsafeDecodeURIComponent xs
@@ -172,7 +176,7 @@ parsePath =
   splitNonEmpty _ "" = []
   splitNonEmpty p s  = split p s
 
-  toRouteState (Tuple segments (Tuple params h)) =
+  toRouteState (Tuple (Tuple segments params) h) =
     { segments, params, hash: h }
 
   splitAt k p str =
