@@ -57,7 +57,7 @@ derive instance functorRouteDuplex :: Functor (RouteDuplex i)
 instance applyRouteDuplex :: Apply (RouteDuplex i) where
   apply (RouteDuplex encl decl) (RouteDuplex encr decr) = RouteDuplex (append <$> encl <*> encr) (decl <*> decr)
 
-instance applicativeRotueDuplex :: Applicative (RouteDuplex i) where
+instance applicativeRouteDuplex :: Applicative (RouteDuplex i) where
   pure = RouteDuplex (const mempty) <<< pure
 
 instance profunctorRouteDuplex :: Profunctor RouteDuplex where
