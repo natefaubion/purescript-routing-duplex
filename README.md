@@ -382,3 +382,38 @@ route = root $ sum
   , "Post": "user" / uname / "post" / cru postId
   }
 ```
+
+## Example: Running our codec with `purescript-routing`
+
+We've developed a capable parser and printer for our route data type. To be useful, though, we'll want to use our parser along with a library that handles hash-based or pushState routing for us. The most common choice is the `purescript-routing` library. If you aren't familiar with how the library works, [consider skimming the official guide](https://github.com/slamdata/purescript-routing/blob/v8.0.0/GUIDE.md).
+
+We'll use the library to handle hashes and pushState, but rather than use their parser combinators, we'll provide our own, custom parser -- our codec.
+
+First, we'll choose the `matchesWith` function that fits our use case:
+- [`Routing.Hash.matchesWith`](https://pursuit.purescript.org/packages/purescript-routing/8.0.0/docs/Routing.Hash#v:matchesWith)
+- [`Routing.PushState.matchesWith`](https://pursuit.purescript.org/packages/purescript-routing/8.0.0/docs/Routing.PushState#v:matchesWith)
+
+From here, we'll assume hash-based routing. Next, we'll take a look at the type signature of `matchesWith`. In a nutshell, this function expects a custom parser and a function that will accept a (possible) previous route and the route that just matched and perform some effects with them. It returns an effect that can be used to remove the event listener this will create.
+
+```purescript
+matchesWith :: forall f a. Foldable f => (String -> f a) -> (Maybe a -> a -> Effect Unit) -> Effect (Effect Unit)
+```
+
+Our custom parser will be the `parse` function from `Routing.Duplex` given our codec:
+
+```purescript
+parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteError o
+```
+
+Filling in the types with our `Route` data type, we get:
+
+```purescript
+matchesWith :: (String -> Either RouteError Route) -> (Maybe Route -> Route -> Effect Unit) -> Effect (Effect Unit)
+```
+
+To perform your routing effects, provide your custom callback function:
+
+```purescript
+canceller <- matchesWith (parse route) \old new -> do
+  ... your routing effects, called every time the route changes ...
+```
