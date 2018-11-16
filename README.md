@@ -191,7 +191,7 @@ data Route
 
 We’ll have to update our codec so that `Feed` takes a record as an argument. We can do this manually with the `record` function and its `:=` operator, which lets you assign a key in the record to a particular codec. Record keys are type-level strings, so we’ll need to use `SProxy` to create them.
 
-Intuitively, we can read the below codec as “Match `”feed”` and then, if it exists, a query parameter with the key “search”, storing its value at the key “search” in the output record.”
+Intuitively, we can read the below codec as “Match `”feed”` and then, if it exists, a query parameter with the key “search”, storing its value at the key “search” in the output record.” This time, we'll use the `optional` combinator to represent an optional value:
 
 ```purescript
 route = root $ sum
@@ -202,13 +202,15 @@ route = root $ sum
     _search = SProxy :: SProxy "search"
 ```
 
-This explicit record creation can be done any time you have a record in your route type. However, using a record for query parameters is common enough that this library exports a helper function, `params`, which lets you just provide a record of codecs where the record keys are treated as the query param keys, too. We could rewrite our above codec using this helper function:
+This explicit record creation can be done any time you have a record in your route type. However, using a record for query parameters is common enough that this library exports a helper function, `params`, which lets you just provide a record of codecs where the record keys are treated as the query param keys, too. There's also an operator version of `params`, `(?)`. We could rewrite our above codec using this helper function:
 
 ```purescript
   { ...
-  , "Feed": path "feed" $ params { search: optional <<< string }
+  , "Feed": path "feed" $ params { search: optional }
   -- alternately
-  , "Feed": "feed" / params { search: optional <<< string }
+  , "Feed": "feed" / params { search: optional }
+  -- alternately
+  , "Feed": "feed" ? { search: optional }
   }
 ```
 
@@ -219,7 +221,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / segment
   , "Post": "user" / segment / "post" / int segment
-  , "Feed": "feed" / params { search: optional <<< string }
+  , "Feed": "feed" ? { search: optional }
   }
 ```
 
@@ -286,10 +288,7 @@ derive instance genericRoute :: Generic Route _
 route :: RouteDuplex' Route
 route = root $ sum
   { ...
-  , "Feed": path "feed" $ params 
-      { search: optional <<< string 
-      , sorting: optional <<< sort
-      }
+  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
   }
 ```
 
@@ -328,10 +327,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / uname
   , "Post": "user" / uname / "post" / postId
-  , "Feed": "feed" / params 
-      { search: optional <<< string 
-      , sorting: optional <<< sort
-      }
+  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
   }
 ```
 
@@ -362,7 +358,7 @@ cru :: forall a. RouteDuplex' a -> RouteDuplex' (CRU a)
 cru inner = sum
   { "Create": noArgs
   , "Read": inner
-  , "Update": path "edit" inner
+  , "Update": "edit" / inner
   }
 ```
 
