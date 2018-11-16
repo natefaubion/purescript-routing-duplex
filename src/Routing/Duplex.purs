@@ -4,6 +4,7 @@ module Routing.Duplex
   , parse
   , print
   , prefix
+  , suffix
   , path
   , root
   , end
@@ -71,6 +72,9 @@ print (RouteDuplex enc _) = Printer.run <<< enc
 
 prefix :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 prefix s (RouteDuplex enc dec) = RouteDuplex (\a -> Printer.put s <> enc a) (Parser.prefix s dec)
+
+suffix :: forall a b. RouteDuplex a b -> String -> RouteDuplex a b
+suffix (RouteDuplex enc dec) s = RouteDuplex (\a -> enc a <> Printer.put s) (dec <* Parser.prefix s (pure unit))
 
 path :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 path = flip (foldr prefix) <<< String.split (Pattern "/")
