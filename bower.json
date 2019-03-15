@@ -8,11 +8,11 @@
   ],
   "dependencies": {
     "purescript-prelude": "^4.1.0",
-    "purescript-record": "^1.0.0",
+    "purescript-record": "^2.0.0",
     "purescript-generics-rep": "^6.0.0",
     "purescript-either": "^4.0.0",
     "purescript-control": "^4.1.0",
-    "purescript-typelevel-prelude": "^3.0.0",
+    "purescript-typelevel-prelude": "^4.0.0",
     "purescript-arrays": "^5.0.0",
     "purescript-globals": "^4.0.0",
     "purescript-strings": "^4.0.0",
@@ -24,6 +24,6 @@
     "purescript-console": "^4.1.0",
     "purescript-effect": "^2.0.0",
     "purescript-assert": "^4.0.0",
-    "purescript-quickcheck": "^5.0.0"
+    "purescript-quickcheck": "^6.1.0"
   }
 }
