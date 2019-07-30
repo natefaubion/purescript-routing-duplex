@@ -12,7 +12,6 @@
     "purescript-generics-rep": "^6.0.0",
     "purescript-either": "^4.0.0",
     "purescript-control": "^4.1.0",
-    "purescript-typelevel-prelude": "^4.0.0",
     "purescript-arrays": "^5.0.0",
     "purescript-globals": "^4.0.0",
     "purescript-strings": "^4.0.0",
