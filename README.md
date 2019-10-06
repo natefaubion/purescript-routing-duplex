@@ -206,11 +206,11 @@ This explicit record creation can be done any time you have a record in your rou
 
 ```purescript
   { ...
-  , "Feed": path "feed" $ params { search: optional }
+  , "Feed": path "feed" $ params { search: optional <<< string }
   -- alternately
-  , "Feed": "feed" / params { search: optional }
+  , "Feed": "feed" / params { search: optional <<< string }
   -- alternately
-  , "Feed": "feed" ? { search: optional }
+  , "Feed": "feed" ? { search: optional <<< string }
   }
 ```
 
@@ -221,7 +221,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / segment
   , "Post": "user" / segment / "post" / int segment
-  , "Feed": "feed" ? { search: optional }
+  , "Feed": "feed" ? { search: optional <<< string }
   }
 ```
 
@@ -288,7 +288,9 @@ derive instance genericRoute :: Generic Route _
 route :: RouteDuplex' Route
 route = root $ sum
   { ...
-  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
+  , "Feed": "feed" ? { search: optional <<< string
+                     , sorting: optional <<< sort
+                     }
   }
 ```
 
@@ -327,7 +329,9 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / uname
   , "Post": "user" / uname / "post" / postId
-  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
+  , "Feed": "feed" ? { search: optional <<< string
+                     , sorting: optional <<< sort
+                     }
   }
 ```
 
