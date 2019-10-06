@@ -8,6 +8,7 @@ module Routing.Duplex
   , path
   , root
   , end
+  , end'
   , segment
   , param
   , flag
@@ -31,7 +32,7 @@ module Routing.Duplex
 
 import Prelude
 
-import Control.Alt (class Alt)
+import Control.Alt (class Alt, (<|>))
 import Control.Alternative (class Alternative)
 import Data.Either (Either)
 import Data.Foldable (class Foldable, foldMap, foldr)
@@ -84,6 +85,10 @@ root = path ""
 
 end :: forall a b. RouteDuplex a b -> RouteDuplex a b
 end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
+
+-- Like `end`, but matches an optional trailing slash when parsing. The slash is omitted when printing.
+end' :: forall a b. RouteDuplex a b -> RouteDuplex a b
+end' (RouteDuplex enc dec) = RouteDuplex enc (dec <* (Parser.end <|> (Parser.prefix "" Parser.end)))
 
 segment :: RouteDuplex' String
 segment = RouteDuplex Printer.put Parser.take

@@ -8,7 +8,7 @@ import Data.Generic.Rep.Show (genericShow)
 import Data.String.Gen (genAlphaString)
 import Data.Symbol (SProxy(..))
 import Effect (Effect)
-import Routing.Duplex (RouteDuplex', flag, int, param, parse, print, record, rest, root, segment, string, (:=))
+import Routing.Duplex (RouteDuplex', end', flag, int, param, parse, path, print, record, rest, root, segment, string, (:=))
 import Routing.Duplex.Generic (noArgs)
 import Routing.Duplex.Generic as RDG
 import Routing.Duplex.Generic.Syntax ((/), (?))
@@ -17,9 +17,10 @@ import Test.QuickCheck.Gen (Gen, arrayOf, chooseInt)
 
 data TestRoute
   = Root
-  | Foo String Int String { a :: String, b :: Boolean }
-  | Bar { id :: String, search :: String }
-  | Baz String (Array String)
+  | Foo
+  | Bar String Int String { a :: String, b :: Boolean }
+  | Baz { id :: String, search :: String }
+  | Qux String (Array String)
 
 derive instance eqTestRoute :: Eq TestRoute
 derive instance genericTestRoute :: Generic TestRoute _
@@ -27,16 +28,17 @@ instance showTestRoute :: Show TestRoute where show = genericShow
 
 genTestRoute :: Gen TestRoute
 genTestRoute = do
-  chooseInt 1 4 >>= case _ of
+  chooseInt 1 5 >>= case _ of
     1 -> pure Root
-    2 ->
-      Foo
+    2 -> pure Foo
+    3 ->
+      Bar
         <$> genAlphaString
         <*> arbitrary
         <*> genAlphaString
         <*> ({ a: _, b: _ } <$> genAlphaString <*> arbitrary)
-    3 -> Bar <$> ({ id: _, search: _ } <$> genAlphaString <*> genAlphaString)
-    _ -> Baz <$> genAlphaString <*> (arrayOf genAlphaString)
+    3 -> Baz <$> ({ id: _, search: _ } <$> genAlphaString <*> genAlphaString)
+    _ -> Qux <$> genAlphaString <*> (arrayOf genAlphaString)
 
 _id = SProxy :: SProxy "id"
 _search = SProxy :: SProxy "search"
@@ -48,17 +50,21 @@ route =
     , "Foo": fooRoute
     , "Bar": barRoute
     , "Baz": bazRoute
+    , "Qux": quxRoute
     }
   where
   fooRoute =
-    segment / int segment / segment ? { a: string, b: flag }
+    path "qux" noArgs # end'
 
   barRoute =
+    segment / int segment / segment ? { a: string, b: flag }
+
+  bazRoute =
     record
       # _id := segment
       # _search := param "search"
 
-  bazRoute =
+  quxRoute =
     segment / rest
 
 main :: Effect Unit
