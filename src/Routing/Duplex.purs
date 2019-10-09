@@ -49,8 +49,15 @@ import Routing.Duplex.Printer (RoutePrinter)
 import Routing.Duplex.Printer as Printer
 import Type.Data.RowList (RLProxy(..))
 
+-- | The core abstraction of this library that can be used both for parsing
+-- | values of type `o` from `String` as well as printing values of type `i` into `String`.
+-- |
+-- | For routing purposes you'll likely want to use more type restricted version
+-- | `RouterDuplex'` which uses the same type for both input and output type parameters.
 data RouteDuplex i o = RouteDuplex (i -> RoutePrinter) (RouteParser o)
 
+-- | A type restricted variant or `RouteDuplex` where input and output are the same type.
+-- | This type will typically be your custom `Route` data type representing valid routes within your application.
 type RouteDuplex' a = RouteDuplex a a
 
 derive instance functorRouteDuplex :: Functor (RouteDuplex i)
@@ -64,9 +71,12 @@ instance applicativeRouteDuplex :: Applicative (RouteDuplex i) where
 instance profunctorRouteDuplex :: Profunctor RouteDuplex where
   dimap f g (RouteDuplex enc dec) = RouteDuplex (f >>> enc) (g <$> dec)
 
+-- | Use given codec to parse a value of type `o` out of String
+-- | (typically representing part of URL) or produce a `RouteError` if the parsing fails.
 parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteError o
 parse (RouteDuplex _ dec) = Parser.run dec
 
+-- | Use given codec to transform a value of type `i` to a String.
 print :: forall i o. RouteDuplex i o -> i -> String
 print (RouteDuplex enc _) = Printer.run <<< enc
 
@@ -79,12 +89,41 @@ suffix (RouteDuplex enc dec) s = RouteDuplex (\a -> enc a <> Printer.put s) (dec
 path :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 path = flip (foldr prefix) <<< String.split (Pattern "/")
 
+-- | Modifies given `codec` by requiring it to be prefixed with '/'.
+-- | You can think of it as stripping the '/' at the beginning of route, failing if it's not there.
+-- |
+-- |```purescript
+-- | parse (root segment) "/abc" == Right "abc"
+-- | parse (root segment) "abc" == Left (Expected "" "abc")
+-- | print (root segment) "abc" == "/abc"
+-- |```
 root :: forall a b. RouteDuplex a b -> RouteDuplex a b
 root = path ""
 
+-- | Modifies given `codec` by requiring it to consume the entire rest of input.
+-- | That is `end codec` succeeds if `codec` suceeds AND all the
+-- | remaining segments have been consumed in the process.
+-- |
+-- |```purescript
+-- | parse (end segment) "abc" == Right "abc"
+-- |
+-- | parse (end segment) "abc/def" == Left (ExpectedEndOfPath "def")
+-- |```
 end :: forall a b. RouteDuplex a b -> RouteDuplex a b
 end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
 
+-- | Process path segment as a String.
+-- | Note that uri encoding / decoding is done automatically.
+-- |
+-- | ```purescript
+-- | parse segment "abc"       == Right "abc"
+-- | parse segment "abc%20def" == Right "abc def" -- automatic decoding of uri components
+-- | parse segment "abc/def"   == Right "abc"
+-- | parse segment "/abc"      == Right "" -- the empty string before the first '/'
+-- |
+-- | print segment "hello there" == "hello%20there"
+-- | print segment "" == "/"
+-- | ```
 segment :: RouteDuplex' String
 segment = RouteDuplex Printer.put Parser.take
 
@@ -128,6 +167,16 @@ as f g (RouteDuplex enc dec) = RouteDuplex (enc <<< f) (Parser.as identity g dec
 int :: RouteDuplex' String -> RouteDuplex' Int
 int = as show Parser.int
 
+-- | Make Boolean codec out of a String codec.
+-- |
+-- | ```purescript
+-- | parse (boolean segment) "true"  == Right true
+-- | parse (boolean segment) "false" == Right false
+-- | parse (boolean segment) "x"     == Left (Expected "Boolean" "x")
+-- |
+-- | print (boolean segment) true    == "true"
+-- | print (boolean segment) false   == "true"
+-- | ```
 boolean :: RouteDuplex' String -> RouteDuplex' Boolean
 boolean = as show Parser.boolean
 
