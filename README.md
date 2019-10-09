@@ -206,12 +206,20 @@ This explicit record creation can be done any time you have a record in your rou
 
 ```purescript
   { ...
-  , "Feed": path "feed" $ params { search: optional <<< string }
+  , "Feed": path "feed" $ params { search: optional }
   -- alternately
-  , "Feed": "feed" / params { search: optional <<< string }
+  , "Feed": "feed" / params { search: optional }
   -- alternately
-  , "Feed": "feed" ? { search: optional <<< string }
+  , "Feed": "feed" ? { search: optional }
   }
+```
+
+> NOTE: The recent version of PureScript compiler (e.g. 0.13.3) might have some problems inferring the type of `optional` when used as in the example above.
+> You can work around this by adding type annotation like `(optional :: RouteDuplex' String -> RouteDuplex' (Maybe String))` or by creating a type restricted version of the operator and using that instead:
+
+ ```purescript
+optionalString :: RouteDuplex' String -> RouteDuplex' (Maybe String)
+optionalString = optional
 ```
 
 At this point, our codec is looking much cleaner:
@@ -221,7 +229,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / segment
   , "Post": "user" / segment / "post" / int segment
-  , "Feed": "feed" ? { search: optional <<< string }
+  , "Feed": "feed" ? { search: optional }
   }
 ```
 
@@ -288,9 +296,7 @@ derive instance genericRoute :: Generic Route _
 route :: RouteDuplex' Route
 route = root $ sum
   { ...
-  , "Feed": "feed" ? { search: optional <<< string
-                     , sorting: optional <<< sort
-                     }
+  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
   }
 ```
 
@@ -329,9 +335,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / uname
   , "Post": "user" / uname / "post" / postId
-  , "Feed": "feed" ? { search: optional <<< string
-                     , sorting: optional <<< sort
-                     }
+  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
   }
 ```
 
