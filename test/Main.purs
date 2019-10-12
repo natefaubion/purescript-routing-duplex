@@ -14,6 +14,7 @@ import Routing.Duplex.Generic as RDG
 import Routing.Duplex.Generic.Syntax ((/), (?))
 import Test.QuickCheck (Result(..), arbitrary, quickCheckGen, (===))
 import Test.QuickCheck.Gen (Gen, arrayOf, chooseInt)
+import Test.Unit (combinatorUnitTests)
 
 data TestRoute
   = Root
@@ -63,6 +64,8 @@ route =
 
 main :: Effect Unit
 main = do
+  combinatorUnitTests
+  
   quickCheckGen do
     r <- genTestRoute
     let

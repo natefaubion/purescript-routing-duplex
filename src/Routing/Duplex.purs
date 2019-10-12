@@ -52,12 +52,13 @@ import Type.Data.RowList (RLProxy(..))
 -- | The core abstraction of this library that can be used both for parsing
 -- | values of type `o` from `String` as well as printing values of type `i` into `String`.
 -- |
--- | For routing purposes you'll likely want to use more type restricted version
--- | `RouterDuplex'` which uses the same type for both input and output type parameters.
+-- | For most purposes, you'll likely want `RouterDuplex'` which uses the same
+-- | type for both parameters.
 data RouteDuplex i o = RouteDuplex (i -> RoutePrinter) (RouteParser o)
 
--- | A type restricted variant or `RouteDuplex` where input and output are the same type.
--- | This type will typically be your custom `Route` data type representing valid routes within your application.
+-- | A type restricted variant or `RouteDuplex` where input and output are
+-- | the same type. This type will typically be your custom `Route` data type
+-- | representing valid routes within your application.
 type RouteDuplex' a = RouteDuplex a a
 
 derive instance functorRouteDuplex :: Functor (RouteDuplex i)
@@ -71,55 +72,83 @@ instance applicativeRouteDuplex :: Applicative (RouteDuplex i) where
 instance profunctorRouteDuplex :: Profunctor RouteDuplex where
   dimap f g (RouteDuplex enc dec) = RouteDuplex (f >>> enc) (g <$> dec)
 
--- | Use given codec to parse a value of type `o` out of String
--- | (typically representing part of URL) or produce a `RouteError` if the parsing fails.
+-- | Use given codec to parse a value of type `o` out of String representing
+-- | *path, query and fragment (hash) of URI* (see
+-- | [URI - generic syntax](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Generic_syntax))
+-- | or produce a `RouteError` if parsing fails.
 parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteError o
 parse (RouteDuplex _ dec) = Parser.run dec
 
--- | Use given codec to transform a value of type `i` to a String.
+-- | Renders a value of type `i` into a String representation of URL path,
+-- |  query and fragment (hash).
 print :: forall i o. RouteDuplex i o -> i -> String
 print (RouteDuplex enc _) = Printer.run <<< enc
 
+-- | Strips (when parsing) or adds (when printing) given string segment of the
+-- | path. **Note: this combinator only deals with single segment.**
+-- | If you pass it a String containing '/' it will url encode it.
+-- | E.g. `prefix "/api/v1"` will attempt to match single segment "%2Fapi%2Fv1" which is probably not what you want.
+-- | See `path` if you want to deal with prefixes consisting of multiple segments.
+-- |
+-- |```purescript
+-- | parse (prefix "api" segment) "api/a" == Right "a"
+-- |
+-- | parse (prefix "/api/v1" segment)) "/api/v1/a" == Left (Expected "/api/v1" "")
+-- |
+-- | -- contrast with `path`
+-- | parse (path "/api/v1" segment)) "/api/v1/a" == Right "a"
+-- |```
 prefix :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 prefix s (RouteDuplex enc dec) = RouteDuplex (\a -> Printer.put s <> enc a) (Parser.prefix s dec)
 
+-- | Similar to `prefix`, strips (when parsing) or adds (when printing) given string segment of the path.
+-- | Similar precautions as for prefix apply here.
 suffix :: forall a b. RouteDuplex a b -> String -> RouteDuplex a b
 suffix (RouteDuplex enc dec) s = RouteDuplex (\a -> enc a <> Printer.put s) (dec <* Parser.prefix s (pure unit))
 
+-- | Strips (when parsing) or adds (when printing) given String prefix,
+-- | potentially consisting of multiple path segments. Constrast this with `prefix`,
+-- | which only deal with single segment.
+-- |
+-- |```purescript
+-- | parse (path "/api/v1" segment) "/api/v1/a" == Right "a"
+-- | parse (path "/api/v1" segment) "/api/v2/a" == Left (Expected "v1" "v2")
+-- |```
 path :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 path = flip (foldr prefix) <<< String.split (Pattern "/")
 
--- | Modifies given `codec` by requiring it to be prefixed with '/'.
--- | You can think of it as stripping the '/' at the beginning of route, failing if it's not there.
+-- | Modifies given codec by requiring it to be prefixed with '/'.
+-- | You can think of it as stripping the '/' at the beginning of path,
+-- | failing if it's not there.
 -- |
 -- |```purescript
 -- | parse (root segment) "/abc" == Right "abc"
 -- | parse (root segment) "abc" == Left (Expected "" "abc")
+-- |
 -- | print (root segment) "abc" == "/abc"
 -- |```
 root :: forall a b. RouteDuplex a b -> RouteDuplex a b
 root = path ""
 
--- | Modifies given `codec` by requiring it to consume the entire rest of input.
--- | That is `end codec` succeeds if `codec` suceeds AND all the
--- | remaining segments have been consumed in the process.
+-- | `end codec` will only suceed if codec succeeds and there are no
+-- | additional path segments remaining to be processed.
 -- |
 -- |```purescript
 -- | parse (end segment) "abc" == Right "abc"
--- |
 -- | parse (end segment) "abc/def" == Left (ExpectedEndOfPath "def")
 -- |```
 end :: forall a b. RouteDuplex a b -> RouteDuplex a b
 end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
 
--- | Process path segment as a String.
+-- | Consumes or prints a single path segment.
 -- | Note that uri encoding / decoding is done automatically.
 -- |
 -- | ```purescript
--- | parse segment "abc"       == Right "abc"
--- | parse segment "abc%20def" == Right "abc def" -- automatic decoding of uri components
--- | parse segment "abc/def"   == Right "abc"
--- | parse segment "/abc"      == Right "" -- the empty string before the first '/'
+-- | parse segment "abc"         == Right "abc"
+-- | parse segment "abc%20def"   == Right "abc def" -- automatic decoding of uri components
+-- | parse segment "abc/def"     == Right "abc"
+-- | parse segment "/abc"        == Right "" -- the empty string before the first '/'
+-- | parse (root segment) "/abc" == Right "abc"
 -- |
 -- | print segment "hello there" == "hello%20there"
 -- | print segment "" == "/"
@@ -127,9 +156,18 @@ end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
 segment :: RouteDuplex' String
 segment = RouteDuplex Printer.put Parser.take
 
+-- | `param name` consumes or prints a query parameter with given name.
+-- | Parsing will fail if the parameter is not there.
+-- |
+-- |```purescript
+-- | parse (param "search") "?search=keyword" == Right "keyword"
+-- | parse (param "search") "/"               == Left (MissingParam "search")
+-- | parse (optional (param "search")) "/"    == Right Nothing
+-- |```
 param :: String -> RouteDuplex' String
 param p = RouteDuplex (Printer.param p) (Parser.param p)
 
+-- TODO not sure what's use case for this combinator? Is it like part of path that can optionally be present? Or is it about query params?
 flag :: RouteDuplex' String -> RouteDuplex' Boolean
 flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   where
@@ -137,6 +175,13 @@ flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   enc' _ = mempty
   dec' = Parser.default false (dec $> true)
 
+-- | Repeatedly apply given codec to parse one ore more values from path segments.
+-- | Will fail if no segment can be parsed using given codec.
+-- |
+-- |```purescript
+-- | parse (many1 (int segment)) "1/2/3/x" == Right [1,2,3]
+-- | parse (many1 (int segment)) "x",      == Left (Expected "Int" "x") :: Either RouteError (Array Int)
+-- |```
 many1 :: forall f a b.
   Foldable f =>
   Alt f =>
@@ -145,6 +190,13 @@ many1 :: forall f a b.
   RouteDuplex (f a) (f b)
 many1 (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many1 dec)
 
+-- | Similar to `many1`, except it will succeed even when list of successfully parsed
+-- | path segments is empty.
+-- |
+-- |```purescript
+-- | parse (many (int segment)) "1/2/3/x" == Right [1,2,3]
+-- | parse (many (int segment)) "x",      == Right []
+-- |```
 many :: forall f a b.
   Foldable f =>
   Alternative f =>
@@ -152,30 +204,71 @@ many :: forall f a b.
   RouteDuplex (f a) (f b)
 many (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many dec)
 
+-- | Consumes or prints remaining all the remaining segments
+-- |
+-- |```purescript
+-- | parse rest "" == Right []
+-- | parse (path "a/b" rest) "a/b/c/d" == Right ["c", "d"]
+-- |
+-- | print rest ["a", "b"] == "a/b"
+-- |```
 rest :: RouteDuplex' (Array String)
 rest = RouteDuplex (foldMap Printer.put) Parser.rest
 
+-- | Set a default value which will be returned when parsing fails.
+-- | Does not influence printing in any way.
+-- |
+-- |```purescript
+-- | parse (default 0 $ int segment) "1" == Right 1
+-- | parse (default 0 $ int segment) "x" == Right 0
+-- |```
 default :: forall a b. b -> RouteDuplex a b -> RouteDuplex a b
 default d (RouteDuplex enc dec) = RouteDuplex enc (Parser.default d dec)
 
 optional :: forall a b. RouteDuplex a b -> RouteDuplex (Maybe a) (Maybe b)
 optional (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.optional dec)
 
+-- | Build codec for custom type out of printer and parser functions.
+-- |
+-- |```purescript
+-- | data Sort = Asc | Desc
+-- |
+-- | sortToString :: Sort -> String
+-- | sortToString = case _ of
+-- |   Asc -> "asc"
+-- |   Desc -> "desc"
+-- |
+-- | sortFromString :: String -> Either String Sort
+-- | sortFromString = case _ of
+-- |   "asc" -> Right Asc
+-- |   "desc" -> Right Desc
+-- |   val -> Left $ "Not a sort: " <> val
+-- |
+-- | sort :: RouteDuplex' String -> RouteDuplex' Sort
+-- | sort = as sortToString sortFromString
+-- |```
 as :: forall s a b. (a -> s) -> (String -> Either String b) -> RouteDuplex s String -> RouteDuplex a b
 as f g (RouteDuplex enc dec) = RouteDuplex (enc <<< f) (Parser.as identity g dec)
 
+-- | Refines a codec of Strings to Ints.
+-- |
+-- | ```purescript
+-- | parse (int segment) "1"  == Right 1
+-- | parse (int segment) "x"  == Left (Expected "Int" "x")
+-- |
+-- | print (int segment) 1    == "1"
+-- | ```
 int :: RouteDuplex' String -> RouteDuplex' Int
 int = as show Parser.int
 
--- | Make Boolean codec out of a String codec.
+-- | Refines a codec of Strings to Booleans, where `true` and `false` are the
+-- | strings `"true"` and `"false"`, and other strings are rejected.
 -- |
 -- | ```purescript
 -- | parse (boolean segment) "true"  == Right true
--- | parse (boolean segment) "false" == Right false
 -- | parse (boolean segment) "x"     == Left (Expected "Boolean" "x")
 -- |
 -- | print (boolean segment) true    == "true"
--- | print (boolean segment) false   == "true"
 -- | ```
 boolean :: RouteDuplex' String -> RouteDuplex' Boolean
 boolean = as show Parser.boolean
