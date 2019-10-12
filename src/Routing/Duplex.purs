@@ -204,7 +204,7 @@ many :: forall f a b.
   RouteDuplex (f a) (f b)
 many (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many dec)
 
--- | Consumes or prints remaining all the remaining segments
+-- | Consumes or prints all the remaining segments.
 -- |
 -- |```purescript
 -- | parse rest "" == Right []
