@@ -2,7 +2,7 @@ module Test.Unit (combinatorUnitTests) where
 
 import Prelude
 
-import Routing.Duplex (RouteDuplex', as, boolean, default, int, many, many1, optional, param, parse, path, prefix, print, rest, root, segment, suffix)
+import Routing.Duplex (RouteDuplex', as, boolean, default, flag, int, many, many1, optional, param, parse, path, prefix, print, rest, root, segment, string, suffix)
 import Routing.Duplex.Parser (RouteError(..))
 import Test.Assert (assertEqual)
 import Effect (Effect)
@@ -67,7 +67,7 @@ combinatorUnitTests = do
 
   -- as
   assertEqual { actual: parse (sort segment) "asc", expected: Right Asc }
-  assertEqual { actual: parse (sort segment) "x", expected: Left (Expected "asc or desc" "x") }
+  assertEqual { actual: parse (sort segment) "x",   expected: Left (Expected "asc or desc" "x") }
 
   -- many1
   assertEqual { actual: parse (many1 (int segment)) "1/2/3/x", expected: Right [1,2,3] }
@@ -76,6 +76,22 @@ combinatorUnitTests = do
   -- many
   assertEqual { actual: parse (many (int segment)) "1/2/3/x", expected: Right [1,2,3] }
   assertEqual { actual: parse (many (int segment)) "x",       expected: Right [] }
+
+  -- flag
+  assertEqual { actual: parse (flag (param "x")) "?x",       expected: Right true }
+  assertEqual { actual: parse (flag (param "x")) "?x=true",  expected: Right true }
+  assertEqual { actual: parse (flag (param "x")) "?x=false", expected: Right true }
+  assertEqual { actual: parse (flag (param "x")) "?y",       expected: Right false }
+
+  -- string
+  assertEqual { actual: parse (string segment) "x",   expected: Right "x" }
+  assertEqual { actual: parse (string segment) "%20", expected: Right " " }
+
+  -- optional
+  assertEqual { actual: parse (optional segment) "a",        expected: Right (Just "a") }
+  assertEqual { actual: parse (optional segment) "",         expected: Right Nothing }
+  assertEqual { actual: print (optional segment) (Just "a"), expected: "a" }
+  assertEqual { actual: print (optional segment) Nothing,    expected: "" }
 
 
 data Sort = Asc | Desc

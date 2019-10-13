@@ -49,7 +49,7 @@ import Routing.Duplex.Printer (RoutePrinter)
 import Routing.Duplex.Printer as Printer
 import Type.Data.RowList (RLProxy(..))
 
--- | The core abstraction of this library that can be used both for parsing
+-- | The core abstraction of this library. The values of this type can be used both for parsing
 -- | values of type `o` from `String` as well as printing values of type `i` into `String`.
 -- |
 -- | For most purposes, you'll likely want `RouterDuplex'` which uses the same
@@ -86,8 +86,8 @@ print (RouteDuplex enc _) = Printer.run <<< enc
 
 -- | Strips (when parsing) or adds (when printing) given string segment of the
 -- | path. **Note: this combinator only deals with single segment.**
--- | If you pass it a String containing '/' it will url encode it.
--- | E.g. `prefix "/api/v1"` will attempt to match single segment "%2Fapi%2Fv1" which is probably not what you want.
+-- | If you pass it a String containing '/' it will [percent encode](https://en.wikipedia.org/wiki/Percent-encoding) it and treat it as single segment.
+-- | E.g. `prefix "/api/v1"` will attempt to match single segment `"%2Fapi%2Fv1"` which is probably not what you want.
 -- | See `path` if you want to deal with prefixes consisting of multiple segments.
 -- |
 -- |```purescript
@@ -101,14 +101,14 @@ print (RouteDuplex enc _) = Printer.run <<< enc
 prefix :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
 prefix s (RouteDuplex enc dec) = RouteDuplex (\a -> Printer.put s <> enc a) (Parser.prefix s dec)
 
--- | Similar to `prefix`, strips (when parsing) or adds (when printing) given string segment of the path.
--- | Similar precautions as for prefix apply here.
+-- | Similar to `prefix`. Strips (when parsing) or adds (when printing) given
+-- | String segment of the path. Similar precautions as for prefix apply here.
 suffix :: forall a b. RouteDuplex a b -> String -> RouteDuplex a b
 suffix (RouteDuplex enc dec) s = RouteDuplex (\a -> enc a <> Printer.put s) (dec <* Parser.prefix s (pure unit))
 
 -- | Strips (when parsing) or adds (when printing) given String prefix,
 -- | potentially consisting of multiple path segments. Constrast this with `prefix`,
--- | which only deal with single segment.
+-- | which only deals with single segment.
 -- |
 -- |```purescript
 -- | parse (path "/api/v1" segment) "/api/v1/a" == Right "a"
@@ -141,7 +141,7 @@ end :: forall a b. RouteDuplex a b -> RouteDuplex a b
 end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
 
 -- | Consumes or prints a single path segment.
--- | Note that uri encoding / decoding is done automatically.
+-- | Note that [uri encoding / decoding](https://en.wikipedia.org/wiki/Percent-encoding) is done automatically.
 -- |
 -- | ```purescript
 -- | parse segment "abc"         == Right "abc"
@@ -167,7 +167,17 @@ segment = RouteDuplex Printer.put Parser.take
 param :: String -> RouteDuplex' String
 param p = RouteDuplex (Printer.param p) (Parser.param p)
 
--- TODO not sure what's use case for this combinator? Is it like part of path that can optionally be present? Or is it about query params?
+
+-- | Consumes or prints a query flag (i.e. parameter without value).
+-- | **Note that this combinator ignores the value of the parameter. It only cares about its presence/absence.**
+-- | Presence is interpreted as `true`, absence as `false`.
+-- |
+-- |```purescript
+-- | parse (flag (param "x")) "?x"        == Right true
+-- | parse (flag (param "x")) "?x=true",  == Right true
+-- | parse (flag (param "x")) "?x=false", == Right true -- value is ignored, what matters is presence of the parameter x
+-- | parse (flag (param "x")) "?y",       == Right false
+-- |```
 flag :: RouteDuplex' String -> RouteDuplex' Boolean
 flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   where
@@ -225,6 +235,16 @@ rest = RouteDuplex (foldMap Printer.put) Parser.rest
 default :: forall a b. b -> RouteDuplex a b -> RouteDuplex a b
 default d (RouteDuplex enc dec) = RouteDuplex enc (Parser.default d dec)
 
+-- | Augments the behavior of given codec by making it return `Nothing` if parsing
+-- | fails, or `Just value` if it succeeds.
+-- |
+-- |```purescript
+-- | parse (optional segment) "a"        == Right (Just "a")
+-- | parse (optional segment) ""         == Right Nothing
+-- | 
+-- | print (optional segment) (Just "a") == "a"
+-- | print (optional segment) Nothing    == ""
+-- |```
 optional :: forall a b. RouteDuplex a b -> RouteDuplex (Maybe a) (Maybe b)
 optional (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.optional dec)
 
@@ -273,6 +293,8 @@ int = as show Parser.int
 boolean :: RouteDuplex' String -> RouteDuplex' Boolean
 boolean = as show Parser.boolean
 
+-- | This does nothing (internally it's defined as identity).
+-- | It can be used to restrict a type parameter of a polymorphic `RouteDuplex' a` to `String`.
 string :: RouteDuplex' String -> RouteDuplex' String
 string = identity
 
