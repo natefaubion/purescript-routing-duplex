@@ -2,12 +2,13 @@ module Test.Unit (combinatorUnitTests) where
 
 import Prelude
 
-import Routing.Duplex (RouteDuplex', as, boolean, default, flag, int, many, many1, optional, param, parse, path, prefix, print, rest, root, segment, string, suffix)
+import Routing.Duplex (RouteDuplex', as, boolean, default, flag, int, many, many1, optional, param, params, parse, path, prefix, print, prop, record, rest, root, segment, string, suffix)
 import Routing.Duplex.Parser (RouteError(..))
 import Test.Assert (assertEqual)
 import Effect (Effect)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
+import Data.Symbol (SProxy(..))
 
 combinatorUnitTests :: Effect Unit
 combinatorUnitTests = do
@@ -93,6 +94,11 @@ combinatorUnitTests = do
   assertEqual { actual: print (optional segment) (Just "a"), expected: "a" }
   assertEqual { actual: print (optional segment) Nothing,    expected: "" }
 
+  -- record
+  assertEqual { actual: parse (path "blog" date) "blog/2019/1/2", expected: Right { year: 2019, month: 1, day: 2 } }
+
+  -- params
+  assertEqual { actual: parse search "?page=3&filter=Galaxy%20Quest", expected: Right { page: 3, filter: Just "Galaxy Quest" } }
 
 data Sort = Asc | Desc
 
@@ -114,3 +120,17 @@ sortFromString = case _ of
 
 sort :: RouteDuplex' String -> RouteDuplex' Sort
 sort = as sortToString sortFromString
+
+date :: RouteDuplex' { year :: Int, month :: Int, day :: Int }
+date =
+  record
+    # prop (SProxy :: _ "year") (int segment)
+    # prop (SProxy :: _ "month") (int segment)
+    # prop (SProxy :: _ "day") (int segment)
+
+search :: RouteDuplex' { page :: Int, filter :: Maybe String }
+search =
+  params
+    { page: int
+    , filter: optional <<< string
+    }
