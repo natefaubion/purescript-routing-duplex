@@ -1,5 +1,6 @@
 {
   "name": "purescript-routing-duplex",
+  "license": "MIT",
   "ignore": [
     "**/.*",
     "node_modules",
