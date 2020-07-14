@@ -379,6 +379,78 @@ route = root $ sum
   }
 ```
 
+## Example: Using Variant codecs to represent polymorphic CRUD operations
+In the previous example we’ve seen how to compose codecs in CRUD operations, but the route data types for those operations were fixed, closed; and yet, in most cases, resources in an application need to support different CRUD operations or only a subset of those.
+
+In order to solve this problem, we may use the `Variant` data type from `Data.Variant`. This library exports codecs for polymorphic variants: `variant` and `vcase` (and its operator alias `%=`). The API for these combinators follows the idea of `record` and `prop` seen previously.
+
+In this example we’ll model the same `Post` codec from the previous example, supporting _create_, _read_ and _update_ operations, as well as a `User` codec that supports only the _read_ and _update_ operations, with the caveat that the update operation for users should not take an argument, as a user should only be able to update their own data, and not that of others.
+
+So a complete description of the routes for posts is:
+
+* `/` should represent creation
+* `/:id` should represent reading
+* `/edit/:id` should represent updating
+
+And for users:
+
+* `/:id` should represent reading
+* `/edit` should represent updating
+
+Let’s first create some standard type aliases for common CRUD operations that may be used with `Variant` first:
+
+```purescript
+type Create r = (create :: Unit | r)
+type Read a r = (read :: a | r)
+type Update a r = (update :: a | r)
+```
+
+We can use these type aliases to build the parts of the `Route` data type that describe the user and post route schemes. In this example, the `+` type operator from `Type.Row` is used (from the `purescript-typelevel-prelude` package) for extra syntactic sugar:
+
+```purescript
+data Route
+  = ...
+  | User (Variant (Read Username + Update Unit + ()))
+  | Post Username (Variant (Create + Read PostId + Update PostId + ()))
+```
+
+Next, we can create some helper functions for defining codecs for these common operations using `vcase`:
+
+```purescript
+create :: forall r. Lacks "create" r => RouteDuplex' (Variant r) -> RouteDuplex' (Variant (Create r))
+create = vcase (SProxy :: _ "create") (pure unit)
+
+read :: forall a r. Lacks "read" r => RouteDuplex' a -> RouteDuplex' (Variant r) -> RouteDuplex' (Variant (Read a r))
+read = vcase (SProxy :: _ "read")
+
+update :: forall a r. Lacks "update" r => RouteDuplex' a -> RouteDuplex' (Variant r) -> RouteDuplex' (Variant (Update a r))
+update = vcase (SProxy :: _ "update")
+```
+
+And finally, we can use `variant` and the helper codecs we’ve just defined together with `postId` and `uname` to produce the larger `Route` codec:
+
+```purescript
+route = root $ sum
+  { ...
+  , "User":
+      path "user"
+        $ variant
+        # read uname
+        # update (pure unit)
+  , "Post":
+      "user"
+      / uname
+      / path "post"
+          ( variant
+              # create
+              # read postId
+              # update postId
+          )
+  }
+```
+
+It’s important to note here that the read and update routes for users may collide. To solve this ambiguity, we had to define the variant parser for users in the correct order: `update` takes priority over `read` as it is applied later.
+
 ## Example: Running our codec with `purescript-routing`
 
 We've developed a capable parser and printer for our route data type. To be useful, though, we'll want to use our parser along with a library that handles hash-based or pushState routing for us. The most common choice is the `purescript-routing` library. If you aren't familiar with how the library works, [consider skimming the official guide](https://github.com/slamdata/purescript-routing/blob/v8.0.0/GUIDE.md).
