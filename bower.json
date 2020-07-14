@@ -17,7 +17,8 @@
     "purescript-globals": "^4.0.0",
     "purescript-strings": "^4.0.0",
     "purescript-lazy": "^4.0.0",
-    "purescript-profunctor": "^4.0.0"
+    "purescript-profunctor": "^4.0.0",
+    "purescript-variant": "^6.0.1"
   },
   "devDependencies": {
     "purescript-psci-support": "^4.0.0",
