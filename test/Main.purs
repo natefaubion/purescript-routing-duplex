@@ -2,11 +2,12 @@ module Test.Main where
 
 import Prelude hiding ((/))
 
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Show.Generic (genericShow)
 import Data.String.Gen (genAlphaString)
 import Data.Symbol (SProxy(..))
+import Data.Bifunctor (lmap)
 import Effect (Effect)
 import Routing.Duplex (RouteDuplex', flag, int, param, parse, print, record, rest, root, segment, string, (:=))
 import Routing.Duplex.Generic (noArgs)
@@ -65,17 +66,20 @@ route =
 main :: Effect Unit
 main = do
   combinatorUnitTests
-  
+
   quickCheckGen do
-    r <- genTestRoute
+    initialRoute <- genTestRoute
+
     let
-      url = print route r
-      res = parse route url
-    pure $ case res of
-      Left err ->
-        Failed $
+      testPrintParse :: Either String Result
+      testPrintParse = do
+        (url :: String) <- print route initialRoute # lmap (\err ->
           show err <> ":"
-            <> "\n  " <> show r
-            <> "\n  " <> show url
-      Right r' ->
-        r === r'
+          <> "\n  " <> show initialRoute)
+        (outputRoute :: TestRoute) <- parse route url # lmap (\err ->
+          show err <> ":"
+          <> "\n  " <> show initialRoute
+          <> "\n  " <> show url)
+        Right $ initialRoute === outputRoute
+
+    pure $ either Failed identity $ testPrintParse

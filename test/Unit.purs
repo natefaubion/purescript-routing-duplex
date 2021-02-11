@@ -3,7 +3,7 @@ module Test.Unit (combinatorUnitTests) where
 import Prelude
 
 import Routing.Duplex (RouteDuplex', as, boolean, default, flag, int, many, many1, optional, param, params, parse, path, prefix, print, prop, record, rest, root, segment, string, suffix)
-import Routing.Duplex.Parser (RouteError(..))
+import Routing.Duplex.Parser (RouteError(..), RouteParseError(..))
 import Test.Assert (assertEqual)
 import Effect (Effect)
 import Data.Either (Either(..))
@@ -15,52 +15,52 @@ combinatorUnitTests = do
   -- boolean
   assertEqual { actual: parse (boolean segment) "true",  expected: Right true }
   assertEqual { actual: parse (boolean segment) "false", expected: Right false }
-  assertEqual { actual: parse (boolean segment) "x",     expected: Left (Expected "Boolean" "x") }
-  assertEqual { actual: parse (boolean segment) "",      expected: Left EndOfPath }
+  assertEqual { actual: parse (boolean segment) "x",     expected: Left $ RouteParseError $ Expected "Boolean" "x" }
+  assertEqual { actual: parse (boolean segment) "",      expected: Left $ RouteParseError EndOfPath }
 
   -- prefix
   assertEqual { actual: parse (prefix "api" segment) "api/a",             expected: Right "a" }
   assertEqual { actual: parse (prefix "api" segment) "api/a",             expected: Right "a" }
   assertEqual { actual: parse (prefix "/api/v1" segment) "%2Fapi%2Fv1/a", expected: Right "a" }
-  assertEqual { actual: parse (prefix "/api/v1" segment) "/api/v1/a",     expected: Left (Expected "/api/v1" "") }
+  assertEqual { actual: parse (prefix "/api/v1" segment) "/api/v1/a",     expected: Left $ RouteParseError $ Expected "/api/v1" "" }
 
   -- path
   assertEqual { actual: parse (path "/api/v1" segment) "/api/v1/a", expected: Right "a" }
-  assertEqual { actual: parse (path "/api/v1" segment) "/api/v2/a", expected: Left (Expected "v1" "v2") }
+  assertEqual { actual: parse (path "/api/v1" segment) "/api/v2/a", expected: Left $ RouteParseError $ Expected "v1" "v2" }
 
   -- segment
   assertEqual { actual: parse segment "abc",       expected: Right "abc" }
   assertEqual { actual: parse segment "abc%20def", expected: Right "abc def" }
   assertEqual { actual: parse segment "abc/def",   expected: Right "abc" }
   assertEqual { actual: parse segment "/abc",      expected: Right "" }
-  assertEqual { actual: parse segment "",          expected: Left EndOfPath }
+  assertEqual { actual: parse segment "",          expected: Left $ RouteParseError $ EndOfPath }
 
   -- root
   assertEqual { actual: parse (root segment) "/abc", expected: Right "abc" }
-  assertEqual { actual: parse (root segment) "abc",  expected: Left (Expected "" "abc") }
-  assertEqual { actual: parse (root segment) "/",    expected: Left EndOfPath }
+  assertEqual { actual: parse (root segment) "abc",  expected: Left $ RouteParseError $ Expected "" "abc" }
+  assertEqual { actual: parse (root segment) "/",    expected: Left $ RouteParseError $ EndOfPath }
 
   -- int
   assertEqual { actual: parse (int segment) "1", expected: Right 1 }
-  assertEqual { actual: parse (int segment) "x", expected: Left (Expected "Int" "x") }
+  assertEqual { actual: parse (int segment) "x", expected: Left $ RouteParseError $ Expected "Int" "x" }
 
   -- param
   assertEqual { actual: parse (param "search") "?search=keyword", expected: Right "keyword" }
-  assertEqual { actual: parse (param "search") "/",               expected: Left (MissingParam "search") }
+  assertEqual { actual: parse (param "search") "/",               expected: Left $ RouteParseError $ MissingParam "search" }
   assertEqual { actual: parse (optional (param "search")) "/",    expected: Right Nothing }
 
   -- suffix
   assertEqual { actual: parse (suffix segment "latest") "release/latest", expected: Right "release" }
   assertEqual { actual: parse (suffix segment "latest") "/latest",        expected: Right "" }
   assertEqual { actual: parse (suffix segment "x/y") "a/x%2Fy",           expected: Right "a" }
-  assertEqual { actual: parse (suffix segment "latest") "/",              expected: Left EndOfPath }
-  assertEqual { actual: parse (suffix segment "x/y") "a/x/y",             expected: Left (Expected "x/y" "x") }
+  assertEqual { actual: parse (suffix segment "latest") "/",              expected: Left $ RouteParseError $ EndOfPath }
+  assertEqual { actual: parse (suffix segment "x/y") "a/x/y",             expected: Left $ RouteParseError $ Expected "x/y" "x" }
 
   -- rest
   assertEqual { actual: parse rest "",                     expected: Right [] }
   assertEqual { actual: parse rest "a/b",                  expected: Right ["a", "b"] }
   assertEqual { actual: parse (path "a/b" rest) "a/b/c/d", expected: Right ["c", "d"] }
-  assertEqual { actual: print rest ["a", "b"],             expected: "a/b" }
+  assertEqual { actual: print rest ["a", "b"],             expected: Right "a/b" }
 
   -- default
   assertEqual { actual: parse (default 0 $ int segment) "1", expected: Right 1 }
@@ -68,11 +68,11 @@ combinatorUnitTests = do
 
   -- as
   assertEqual { actual: parse (sort segment) "asc", expected: Right Asc }
-  assertEqual { actual: parse (sort segment) "x",   expected: Left (Expected "asc or desc" "x") }
+  assertEqual { actual: parse (sort segment) "x",   expected: Left $ RouteParseError $ Expected "asc or desc" "x" }
 
   -- many1
   assertEqual { actual: parse (many1 (int segment)) "1/2/3/x", expected: Right [1,2,3] }
-  assertEqual { actual: parse (many1 (int segment)) "x",       expected: Left (Expected "Int" "x") :: Either RouteError (Array Int) }
+  assertEqual { actual: parse (many1 (int segment)) "x",       expected: (Left $ RouteParseError $ Expected "Int" "x") :: Either RouteParseError (Array Int) }
 
   -- many
   assertEqual { actual: parse (many (int segment)) "1/2/3/x", expected: Right [1,2,3] }
@@ -91,8 +91,8 @@ combinatorUnitTests = do
   -- optional
   assertEqual { actual: parse (optional segment) "a",        expected: Right (Just "a") }
   assertEqual { actual: parse (optional segment) "",         expected: Right Nothing }
-  assertEqual { actual: print (optional segment) (Just "a"), expected: "a" }
-  assertEqual { actual: print (optional segment) Nothing,    expected: "" }
+  assertEqual { actual: print (optional segment) (Just "a"), expected: Right "a" }
+  assertEqual { actual: print (optional segment) Nothing,    expected: Right "" }
 
   -- record
   assertEqual { actual: parse (path "blog" date) "blog/2019/1/2", expected: Right { year: 2019, month: 1, day: 2 } }

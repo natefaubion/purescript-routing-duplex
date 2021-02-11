@@ -1,5 +1,6 @@
 module Routing.Duplex.Printer
   ( RoutePrinter(..)
+  , PrintPathError(..)
   , put
   , param
   , flag
@@ -11,11 +12,16 @@ module Routing.Duplex.Printer
 import Prelude
 
 import Data.Array as Array
+import Data.Either (Either(..))
 import Data.Function (applyFlipped)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.String (joinWith)
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..), uncurry)
-import Global.Unsafe (unsafeEncodeURIComponent)
+import Data.Generic.Rep (class Generic)
+import Data.Show.Generic (genericShow)
+import JSURI (encodeURIComponent)
 import Routing.Duplex.Types (RouteState, emptyRouteState)
 
 newtype RoutePrinter = RoutePrinter (RouteState -> RouteState)
@@ -27,6 +33,14 @@ instance semigroupRoutePrinter :: Semigroup RoutePrinter where
 
 instance monoidRoutePRinter :: Monoid RoutePrinter where
   mempty = RoutePrinter identity
+
+newtype PrintPathError = EncodeURIComponentError String
+
+derive newtype instance eqPrintPathError :: Eq PrintPathError
+derive newtype instance ordPrintPathError :: Ord PrintPathError
+derive instance newtypePrintPathError :: Newtype PrintPathError _
+derive instance genericPrintPathError :: Generic PrintPathError _
+instance showPrintPathError :: Show PrintPathError where show = genericShow
 
 put :: String -> RoutePrinter
 put str = RoutePrinter \state -> state { segments = Array.snoc state.segments str }
@@ -42,22 +56,36 @@ flag key val
 hash :: String -> RoutePrinter
 hash h = RoutePrinter _ { hash = h }
 
-run :: RoutePrinter -> String
+run :: RoutePrinter -> Either PrintPathError String
 run = printPath <<< applyFlipped emptyRouteState <<< unwrap
 
-printPath :: RouteState -> String
-printPath { segments, params, hash: hash' } =
-  printSegments segments <> printParams params <> printHash hash'
+printPath :: RouteState -> Either PrintPathError String
+printPath = \{ segments, params, hash: hash' } -> ado
+  segments' <- printSegments segments
+  params' <- printParams params
+  in segments' <> params' <> printHash hash'
   where
+  encodeURIComponent' :: String -> Either PrintPathError String
+  encodeURIComponent' s = case encodeURIComponent s of
+    Just s' -> Right s'
+    _ -> Left $ EncodeURIComponentError s
+
+  printSegments :: Array String -> Either PrintPathError String
   printSegments = case _ of
-    [""] -> "/"
-    xs -> joinWith "/" $ map unsafeEncodeURIComponent xs
+    [""] -> Right "/"
+    xs -> joinWith "/" <$> traverse encodeURIComponent' xs
 
-  printParams [] = ""
-  printParams ps = "?" <> joinWith "&" (uncurry printParam <$> ps)
+  printParams :: Array (Tuple String String) -> Either PrintPathError String
+  printParams [] = Right ""
+  printParams ps = (\x -> "?" <> joinWith "&" x) <$> (traverse (uncurry printParam) ps)
 
-  printParam key ""  = unsafeEncodeURIComponent key
-  printParam key val = unsafeEncodeURIComponent key <> "=" <> unsafeEncodeURIComponent val
+  printParam :: String -> String -> Either PrintPathError String
+  printParam key ""  = encodeURIComponent' key
+  printParam key val = ado
+     key' <- encodeURIComponent' key
+     val' <- encodeURIComponent' val
+     in key' <> "=" <> val'
 
+  printHash :: String -> String
   printHash "" = ""
   printHash h  = "#" <> h

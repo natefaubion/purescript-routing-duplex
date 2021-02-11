@@ -2,6 +2,7 @@ module Routing.Duplex.Parser
   ( RouteError(..)
   , RouteResult(..)
   , RouteParser(..)
+  , RouteParseError(..)
   , runRouteParser
   , parsePath
   , run
@@ -30,19 +31,18 @@ import Control.Lazy (class Lazy)
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Bifunctor (bimap, lmap)
 import Data.Either (Either(..))
-import Data.Foldable (foldl)
+import Data.Foldable (foldl, lookup)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
 import Data.Int as Int
 import Data.Lazy as Z
 import Data.Maybe (Maybe(..), maybe)
+import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
 import Data.Tuple (Tuple(..))
-import Data.Tuple as Tuple
-import Global.Unsafe (unsafeDecodeURIComponent)
+import Data.Traversable (traverse)
+import JSURI (decodeURIComponent)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
 data RouteResult a
@@ -94,6 +94,14 @@ instance lazyRouteParser :: Lazy (RouteParser a) where
       runRouteParser state (Z.force parser)
     where
     parser = Z.defer k
+
+data RouteParseError
+  = RouteParseError RouteError
+  | DecodeURIError String
+
+derive instance eqRouteParseError :: Eq RouteParseError
+derive instance genericRouteParseError :: Generic RouteParseError _
+instance showRouteParseError :: Show RouteParseError where show = genericShow
 
 altAppend :: forall a.
   NonEmptyArray (RouteParser a) ->
@@ -153,41 +161,58 @@ runRouteParser = go
   goAlt state (Fail _) p = runRouteParser state p
   goAlt _ res _ = res
 
-parsePath :: String -> RouteState
-parsePath =
-  splitAt (flip Tuple "") "#"
-    >>> lmap splitPath
-    >>> toRouteState
+parsePath :: String -> Either String RouteState
+parsePath = splitAt (flip Tuple "") "#" >>> \(Tuple before hash') -> ado
+  { segments, params } <- splitPath before
+  in { segments, params, hash: hash' }
   where
+  decodeURIComponent' :: String -> Either String String
+  decodeURIComponent' s = case decodeURIComponent s of
+    Just s' -> Right s'
+    _ -> Left s
+
+  splitPath :: String -> Either String { segments :: Array String, params :: Array (Tuple String String) }
   splitPath =
     splitAt (flip Tuple "") "?"
-      >>> bimap splitSegments splitParams
+      >>> \(Tuple before after) -> ado
+        segments <- splitSegments before
+        params <- splitParams after
+        in { segments, params }
 
+  splitSegments :: String -> Either String (Array String)
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
-    ["", ""] -> [""]
-    xs -> map unsafeDecodeURIComponent xs
+    ["", ""] -> Right [""]
+    xs -> traverse decodeURIComponent' xs
 
+  splitParams :: String -> Either String (Array (Tuple String String))
   splitParams =
-    splitNonEmpty (Pattern "&") >>> map splitKeyValue
+    splitNonEmpty (Pattern "&") >>> traverse splitKeyValue
 
+  splitKeyValue :: String -> Either String (Tuple String String)
   splitKeyValue =
-    splitAt (flip Tuple "") "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
+    splitAt (flip Tuple "") "=" >>> \(Tuple before after) -> ado
+      key <- decodeURIComponent' before
+      val <- decodeURIComponent' after
+      in Tuple key val
 
+  splitNonEmpty :: Pattern -> String -> Array String
   splitNonEmpty _ "" = []
   splitNonEmpty p s  = split p s
 
-  toRouteState (Tuple (Tuple segments params) h) =
-    { segments, params, hash: h }
-
-  splitAt k p str =
+  splitAt :: (String -> Tuple String String) -> String -> String -> Tuple String String
+  splitAt onFail p str =
     case String.indexOf (Pattern p) str of
       Just ix -> Tuple (String.take ix str) (String.drop (ix + String.length p) str)
-      Nothing -> k str
+      Nothing -> onFail str
 
-run :: forall a. RouteParser a -> String -> Either RouteError a
-run p = parsePath >>> flip runRouteParser p >>> case _ of
-  Fail err -> Left err
-  Success _ res -> Right res
+run :: forall a. RouteParser a -> String -> Either RouteParseError a
+run routeParser = parsePath >>>
+  case _ of
+       Left failedURIComponent -> Left $ DecodeURIError failedURIComponent
+       Right state ->
+         case runRouteParser state routeParser of
+            Fail err -> Left $ RouteParseError err
+            Success _ res -> Right res
 
 prefix :: forall a. String -> RouteParser a -> RouteParser a
 prefix = Prefix
@@ -200,7 +225,7 @@ take = Chomp \state ->
 
 param :: String -> RouteParser String
 param key = Chomp \state ->
-  case Tuple.lookup key state.params of
+  case lookup key state.params of
     Just a -> Success state a
     _ -> Fail $ MissingParam key
 

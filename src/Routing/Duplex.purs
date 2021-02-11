@@ -45,7 +45,7 @@ import Prim.RowList (RowList, class RowToList, Cons, Nil)
 import Record as Record
 import Routing.Duplex.Parser (RouteParser)
 import Routing.Duplex.Parser as Parser
-import Routing.Duplex.Printer (RoutePrinter)
+import Routing.Duplex.Printer (PrintPathError, RoutePrinter)
 import Routing.Duplex.Printer as Printer
 import Type.Data.RowList (RLProxy(..))
 
@@ -76,12 +76,12 @@ instance profunctorRouteDuplex :: Profunctor RouteDuplex where
 -- | the path, query and fragment (hash) of a URI (see
 -- | [URI - generic syntax](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Generic_syntax))
 -- | or produce a `RouteError` if parsing fails.
-parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteError o
+parse :: forall i o. RouteDuplex i o -> String -> Either Parser.RouteParseError o
 parse (RouteDuplex _ dec) = Parser.run dec
 
 -- | Renders a value of type `i` into a String representation of URI path,
 -- | query and fragment (hash).
-print :: forall i o. RouteDuplex i o -> i -> String
+print :: forall i o. RouteDuplex i o -> i -> Either PrintPathError String
 print (RouteDuplex enc _) = Printer.run <<< enc
 
 -- | Strips (when parsing) or adds (when printing) a given string segment of the
