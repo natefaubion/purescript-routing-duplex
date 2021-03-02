@@ -4,7 +4,7 @@ import Prelude hiding ((/))
 
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
+import Data.Show.Generic (genericShow)
 import Data.String.Gen (genAlphaString)
 import Data.Symbol (SProxy(..))
 import Effect (Effect)
