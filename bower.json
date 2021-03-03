@@ -8,22 +8,21 @@
     "output"
   ],
   "dependencies": {
-    "purescript-prelude": "^4.1.0",
-    "purescript-record": "^2.0.0",
-    "purescript-generics-rep": "^6.0.0",
-    "purescript-either": "^4.0.0",
-    "purescript-control": "^4.1.0",
-    "purescript-arrays": "^5.0.0",
-    "purescript-globals": "^4.0.0",
-    "purescript-strings": "^4.0.0",
-    "purescript-lazy": "^4.0.0",
-    "purescript-profunctor": "^4.0.0"
+    "purescript-prelude": "^5.0.0",
+    "purescript-record": "^3.0.0",
+    "purescript-either": "^5.0.0",
+    "purescript-control": "^5.0.0",
+    "purescript-arrays": "^6.0.0",
+    "purescript-strings": "^5.0.0",
+    "purescript-lazy": "^5.0.0",
+    "purescript-profunctor": "^5.0.0",
+    "purescript-js-uri": "https://github.com/purescript-contrib/purescript-js-uri.git#2.0.0"
   },
   "devDependencies": {
-    "purescript-psci-support": "^4.0.0",
-    "purescript-console": "^4.1.0",
-    "purescript-effect": "^2.0.0",
-    "purescript-assert": "^4.0.0",
-    "purescript-quickcheck": "^6.1.0"
+    "purescript-psci-support": "^5.0.0",
+    "purescript-console": "^5.0.0",
+    "purescript-effect": "^3.0.0",
+    "purescript-assert": "^5.0.0",
+    "purescript-quickcheck": "^7.0.0"
   }
 }

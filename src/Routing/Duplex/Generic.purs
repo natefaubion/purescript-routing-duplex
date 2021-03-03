@@ -17,7 +17,7 @@ sum :: forall a rep r.
   RouteDuplex' a
 sum = dimap from to <<< gRouteDuplex
 
-class GRouteDuplex rep (r :: # Type) | rep -> r where
+class GRouteDuplex rep (r :: Row Type) | rep -> r where
   gRouteDuplex :: { | r } -> RouteDuplex' rep
 
 instance gRouteSum ::

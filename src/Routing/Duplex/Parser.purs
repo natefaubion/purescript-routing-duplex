@@ -32,17 +32,17 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Bifunctor (bimap, lmap)
 import Data.Either (Either(..))
-import Data.Foldable (foldl)
+import Data.Foldable (foldl, lookup)
 import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
 import Data.Int as Int
 import Data.Lazy as Z
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
 import Data.Tuple (Tuple(..))
-import Data.Tuple as Tuple
-import Global.Unsafe (unsafeDecodeURIComponent)
+import JSURI (decodeURIComponent)
+import Partial.Unsafe (unsafePartial)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
 data RouteResult a
@@ -163,6 +163,8 @@ parsePath =
     splitAt (flip Tuple "") "?"
       >>> bimap splitSegments splitParams
 
+  unsafeDecodeURIComponent = unsafePartial fromJust <<< decodeURIComponent
+
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
     ["", ""] -> [""]
     xs -> map unsafeDecodeURIComponent xs
@@ -200,7 +202,7 @@ take = Chomp \state ->
 
 param :: String -> RouteParser String
 param key = Chomp \state ->
-  case Tuple.lookup key state.params of
+  case lookup key state.params of
     Just a -> Success state a
     _ -> Fail $ MissingParam key
 

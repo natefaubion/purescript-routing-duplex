@@ -41,7 +41,7 @@ import Data.String (Pattern(..))
 import Data.String as String
 import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Prim.Row as Row
-import Prim.RowList (kind RowList, class RowToList, Cons, Nil)
+import Prim.RowList (RowList, class RowToList, Cons, Nil)
 import Record as Record
 import Routing.Duplex.Parser (RouteParser)
 import Routing.Duplex.Parser as Parser
@@ -328,7 +328,7 @@ prop sym (RouteDuplex f g) (RouteDuplex x y) =
 
 infix 2 prop as :=
 
-class RouteDuplexParams (r1 :: # Type) (r2 :: # Type) | r1 -> r2 where
+class RouteDuplexParams (r1 :: Row Type) (r2 :: Row Type) | r1 -> r2 where
   -- | Builds a `RouteDuplex` from a record of query parameter parsers/printers, where
   -- | each property corresponds to a query parameter with the same name.
   -- |
@@ -353,7 +353,7 @@ instance routeDuplexParams ::
     record
       # buildParams (RLProxy :: RLProxy rl) r
 
-class RouteDuplexBuildParams (rl :: RowList) (r1 :: # Type) (r2 :: # Type) (r3 :: # Type) (r4 :: # Type) | rl -> r1 r2 r3 r4 where
+class RouteDuplexBuildParams (rl :: RowList Type) (r1 :: Row Type) (r2 :: Row Type) (r3 :: Row Type) (r4 :: Row Type) | rl -> r1 r2 r3 r4 where
   buildParams ::
     RLProxy rl ->
     { | r1 } ->
