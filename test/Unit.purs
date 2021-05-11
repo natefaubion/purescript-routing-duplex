@@ -116,7 +116,7 @@ sortFromString :: String -> Either String Sort
 sortFromString = case _ of
   "asc" -> Right Asc
   "desc" -> Right Desc
-  val -> Left $ "asc or desc"
+  _ -> Left $ "asc or desc"
 
 sort :: RouteDuplex' String -> RouteDuplex' Sort
 sort = as sortToString sortFromString

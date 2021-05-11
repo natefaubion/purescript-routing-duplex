@@ -221,7 +221,7 @@ many1 p = Chomp go
   go' :: RouteState -> t a -> RouteResult (t a)
   go' state xs =
     case runRouteParser state p of
-      Fail err -> Success state xs
+      Fail _ -> Success state xs
       Success state' a -> go' state' (xs <|> pure a)
 
 many :: forall t a. Alternative t => RouteParser a -> RouteParser (t a)
