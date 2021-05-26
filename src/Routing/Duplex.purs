@@ -240,7 +240,7 @@ default d (RouteDuplex enc dec) = RouteDuplex enc (Parser.default d dec)
 -- |```purescript
 -- | parse (optional segment) "a"        == Right (Just "a")
 -- | parse (optional segment) ""         == Right Nothing
--- | 
+-- |
 -- | print (optional segment) (Just "a") == "a"
 -- | print (optional segment) Nothing    == ""
 -- |```
@@ -378,4 +378,4 @@ instance buildParamsCons ::
 
 instance buildParamsNil ::
   RouteDuplexBuildParams Nil r1 r2 r3 r3 where
-    buildParams _ r = identity
+    buildParams _ _ = identity

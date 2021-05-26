@@ -65,7 +65,7 @@ route =
 main :: Effect Unit
 main = do
   combinatorUnitTests
-  
+
   quickCheckGen do
     r <- genTestRoute
     let
