@@ -8,7 +8,7 @@ import Test.Assert (assertEqual)
 import Effect (Effect)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.Symbol (SProxy(..))
+import Type.Proxy (Proxy(..))
 
 combinatorUnitTests :: Effect Unit
 combinatorUnitTests = do
@@ -124,9 +124,9 @@ sort = as sortToString sortFromString
 date :: RouteDuplex' { year :: Int, month :: Int, day :: Int }
 date =
   record
-    # prop (SProxy :: _ "year") (int segment)
-    # prop (SProxy :: _ "month") (int segment)
-    # prop (SProxy :: _ "day") (int segment)
+    # prop (Proxy :: _ "year") (int segment)
+    # prop (Proxy :: _ "month") (int segment)
+    # prop (Proxy :: _ "day") (int segment)
 
 search :: RouteDuplex' { page :: Int, filter :: Maybe String }
 search =

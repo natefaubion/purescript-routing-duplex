@@ -1,6 +1,7 @@
 Simple bidirectional parser/printers for your routing data types.
 
 # Why?
+
 Strongly-typed languages let you define your routes as a data type, ensuring invalid routes fail to compile. But the browser represents locations as strings, so you have to write functions to decode strings into your routing data type and functions to write a route to a string.
 
 Unfortunately, writing separate functions to parse and print your routing data type is error-prone and boilerplate-heavy. It’s easy to update a parser and forget to update the accompanying printer, even though almost all routing definitions should round-trip (parsing then printing returns the original string value).
@@ -8,7 +9,8 @@ Unfortunately, writing separate functions to parse and print your routing data t
 `routing-duplex` takes an approach that solves both problems. This library lets you define a codec, or a means to both decode and encode a particular data type, for your routes. Write this codec once and it will handle parsing and printing the same representation for you.
 
 ## A Brief Example
-Let’s build a codec for a simple app with two routes: the homepage and user profiles (identified by usernames). 
+
+Let’s build a codec for a simple app with two routes: the homepage and user profiles (identified by usernames).
 
 1. Write a data type to represent our two routes, deriving `Generic`.
 2. Build a codec using generics and combinators from `Routing.Duplex`
@@ -46,8 +48,8 @@ print route $ Profile "jake-delhomme"
 > "/profile/jake-delhomme"
 ```
 
-
 # How to use this library
+
 `routing-duplex` works by letting you define a codec which represents how to encode and decode your routing data type. You can define your routing data however you see fit, and then provide it to the library’s codec type, `RouteDuplex`:
 
 ```purescript
@@ -62,14 +64,16 @@ type RouteDuplex' a = RouteDuplex a a
 
 This library exports a number of helper functions and combinators for constructing this codec with minimal boilerplate, mostly concentrated in two modules:
 
-* `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
-* `Routing.Duplex.Generic` exports helpers for deriving code via your data type’s `Generic` instance, most notably the `sum` function for describing a route as a sum type and the `product` and `noArgs` functions for working with product types.
-* `Routing.Duplex.Generic.Syntax` exports some symbols that can be used to write terse codecs similar to those found in string-based routers.
+- `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
+- `Routing.Duplex.Generic` exports helpers for deriving code via your data type’s `Generic` instance, most notably the `sum` function for describing a route as a sum type and the `product` and `noArgs` functions for working with product types.
+- `Routing.Duplex.Generic.Syntax` exports some symbols that can be used to write terse codecs similar to those found in string-based routers.
 
 # Examples
+
 We’ll explore several practical examples of this library in practice while building a real-world routing data type and codec.
 
 ## Example: Writing a codec for a sum type
+
 Let’s begin developing a more complex set of routes. We’ll design routes for a small blogging site made up of users and their posts, as well as feed showing new posts from across the site. We can represent these routes in a small data type:
 
 ```purescript
@@ -95,7 +99,7 @@ Next, we need to represent the ability to parse static and dynamic segments from
 We can use the `path`, `segment`, and `param` helper functions to capture these static and dynamic segments.
 
 ```purescript
--- Allows you to match a static segment. For example, to match the 
+-- Allows you to match a static segment. For example, to match the
 -- /feed path, use `path "feed" ...` where `...` represents further
 -- segments.
 path :: forall a b. String -> RouteDuplex a b -> RouteDuplex a b
@@ -122,13 +126,14 @@ int :: RouteDuplex' String -> RouteDuplex' Int
 optional :: forall a b. RouteDuplex a b -> RouteDuplex (Maybe a) (Maybe b)
 ```
 
-You can easily implement your own combinators using `as`, the function used to construct each of the built-in combinators. We’ll see an example of that later on! 
+You can easily implement your own combinators using `as`, the function used to construct each of the built-in combinators. We’ll see an example of that later on!
 
 At this point, we have the tools we need to:
-* Handle static segments of a path, like `"/user"`
-* Handle variable segments of a path, like `/:username` or `/:postid`
-* Handle query parameters, like `?foo=bar`
-* Transform string segments into other types, like using the `int` combinator to turn a post ID into a String
+
+- Handle static segments of a path, like `"/user"`
+- Handle variable segments of a path, like `/:username` or `/:postid`
+- Handle query parameters, like `?foo=bar`
+- Transform string segments into other types, like using the `int` combinator to turn a post ID into a String
 
 However, we still need two more tools to construct our codec. First, we need to be able to specify codecs for every case in our routing sum type: this can be done with the `sum` function from the `Routing.Duplex.Generic` module. Second, we need to be able to specify that a type should match zero or more of these dynamic segments. For routes that have no arguments, we’ll use `noArgs`; for routes with one argument, we’ll just provide a codec; and for routes with multiple arguments, we’ll combine codecs with `product`.
 
@@ -143,17 +148,17 @@ route = root $ sum
 
 `sum` exposes a nice record syntax so that we can specify codecs for each constructor of the type; if you forget to handle a constructor, you’ll get a compiler error. We need to write a few codecs:
 
-* The `Root` constructor takes no arguments and should match when the path is empty. We can represent that with a simple `noArgs`.
-* The `Profile` constructor takes one argument, a string `Username`, and should match a path that begins with `”user“`. We can represent that using the `path` and `segment` functions, along with the `string` combinator.
-* The `Post` constructor takes two arguments: a string `Username` and an integer `PostId`. We’ll need to use the `product` function to put two dynamic segments together.
-* The `Feed` constructor should only match a string constant in the path, `”feed”`. We can represent that with the `path` function and `noArgs`.
+- The `Root` constructor takes no arguments and should match when the path is empty. We can represent that with a simple `noArgs`.
+- The `Profile` constructor takes one argument, a string `Username`, and should match a path that begins with `”user“`. We can represent that using the `path` and `segment` functions, along with the `string` combinator.
+- The `Post` constructor takes two arguments: a string `Username` and an integer `PostId`. We’ll need to use the `product` function to put two dynamic segments together.
+- The `Feed` constructor should only match a string constant in the path, `”feed”`. We can represent that with the `path` function and `noArgs`.
 
 ```purescript
 route = root $ sum
   { "Root": noArgs
   , "Profile": path "user" (string segment)
-  , "Post": 
-      product 
+  , "Post":
+      product
         (path "user" (string segment))
         (path "post" (int segment))
   , "Feed": path "feed" noArgs
@@ -177,6 +182,7 @@ In fact, when we’re matching string constants, we can omit the call to `path` 
 ```
 
 ## Example: Working with optional or required query params
+
 Users need to be able to search their feeds. This information will come via query parameters, which will be optional. We haven’t dealt with optional segments or query params so far, but they’re easy to add.
 
 First, let’s adjust our route type so that it can accommodate query parameters. Query parameters have a key:value pairing, so it’s typical to represent them with a record type.
@@ -189,7 +195,7 @@ data Route
   | Feed { search :: Maybe String }
 ```
 
-We’ll have to update our codec so that `Feed` takes a record as an argument. We can do this manually with the `record` function and its `:=` operator, which lets you assign a key in the record to a particular codec. Record keys are type-level strings, so we’ll need to use `SProxy` to create them.
+We’ll have to update our codec so that `Feed` takes a record as an argument. We can do this manually with the `record` function and its `:=` operator, which lets you assign a key in the record to a particular codec. Record keys are type-level strings, so we’ll need to use `Proxy` to create them.
 
 Intuitively, we can read the below codec as “Match `”feed”` and then, if it exists, a query parameter with the key “search”, storing its value at the key “search” in the output record.” This time, we'll use the `optional` combinator to represent an optional value:
 
@@ -199,7 +205,7 @@ route = root $ sum
   , "Feed": path "feed" (record # _search := optional (param "search"))
   }
   where
-    _search = SProxy :: SProxy "search"
+    _search = Proxy :: Proxy "search"
 ```
 
 This explicit record creation can be done any time you have a record in your route type. However, using a record for query parameters is common enough that this library exports a helper function, `params`, which lets you just provide a record of codecs where the record keys are treated as the query param keys, too. There's also an operator version of `params`, `(?)`. We could rewrite our above codec using this helper function:
@@ -226,6 +232,7 @@ route = root $ sum
 ```
 
 ## Example: Defining a new codec for custom data
+
 Unfortunately, our route data type is not as type-safe as we’d like it to be. We aren’t really parsing just string and ints — we’re dealing with `Username`s and `PostId`s. In addition, we’ve had a last-minute request to allow users to choose how to sort posts in their feed. We’ll need a custom data type for that, too.
 
 Our codec can easily handle our custom data types. We just have to make our own combinator that describes how to transform to and from a string. In fact, the primitive combinators we saw before (`int`, `boolean`, `string`, `optional`, etc.) are all built using a helper function, `as`, which we can leverage as well.
@@ -235,9 +242,9 @@ Our codec can easily handle our custom data types. We just have to make our own 
 -- some types to how you will almost always use them in practice.
 as
   :: forall a
-   . (a -> String) 
-  -> (String -> Either String a) 
-  -> RouteDuplex' String 
+   . (a -> String)
+  -> (String -> Either String a)
+  -> RouteDuplex' String
   -> RouteDuplex a
 ```
 
@@ -332,6 +339,7 @@ route = root $ sum
 ```
 
 ## Example: Composing codecs to represent CRUD operations
+
 We’ve seen the `RouteDuplex’ a` type all over the place, whether to represent a small codec for integers or strings or a larger one for our complex sum type. We can create codecs of any size and compose them into larger structures. Let’s walk through an example by extending our routing data type to accommodate create, read, and update operations for posts in our system.
 
 First, we’ll define a data type to represent creating, reading, and updating a resource dependent on some kind of identifier, `a`:
@@ -347,9 +355,9 @@ derive instance genericCRU :: Generic (CRU a) _
 
 Next, we’ll again use the `sum` function to write a codec for this sum type. We don’t know how to handle `a`, so we’ll accept a codec to handle it as an argument. We’d like to handle three cases:
 
-* `/` should represent creation
-* `/:id` should represent reading
-* `/edit/:id` should represent updating
+- `/` should represent creation
+- `/:id` should represent reading
+- `/edit/:id` should represent updating
 
 Exactly the same way we wrote a codec for our `Route` type we can write one for our new `CRU` type:
 
@@ -386,6 +394,7 @@ We've developed a capable parser and printer for our route data type. To be usef
 We'll use the library to handle hashes and pushState, but rather than use their parser combinators, we'll provide our own, custom parser -- our codec.
 
 First, we'll choose the `matchesWith` function that fits our use case:
+
 - [`Routing.Hash.matchesWith`](https://pursuit.purescript.org/packages/purescript-routing/8.0.0/docs/Routing.Hash#v:matchesWith)
 - [`Routing.PushState.matchesWith`](https://pursuit.purescript.org/packages/purescript-routing/8.0.0/docs/Routing.PushState#v:matchesWith)
 

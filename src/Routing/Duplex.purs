@@ -39,7 +39,7 @@ import Data.Maybe (Maybe)
 import Data.Profunctor (class Profunctor)
 import Data.String (Pattern(..))
 import Data.String as String
-import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
+import Data.Symbol (class IsSymbol, reflectSymbol)
 import Prim.Row as Row
 import Prim.RowList (RowList, class RowToList, Cons, Nil)
 import Record as Record
@@ -47,7 +47,7 @@ import Routing.Duplex.Parser (RouteParser)
 import Routing.Duplex.Parser as Parser
 import Routing.Duplex.Printer (RoutePrinter)
 import Routing.Duplex.Printer as Printer
-import Type.Data.RowList (RLProxy(..))
+import Type.Proxy (Proxy(..))
 
 -- | The core abstraction of this library. The values of this type can be used both for parsing
 -- | values of type `o` from `String` as well as printing values of type `i` into `String`.
@@ -303,9 +303,9 @@ string = identity
 -- | ```purescript
 -- | date =
 -- |   record
--- |     # prop (SProxy :: _ "year") (int segment)
--- |     # prop (SProxy :: _ "month") (int segment)
--- |     # prop (SProxy :: _ "day") (int segment)
+-- |     # prop (Proxy :: _ "year") (int segment)
+-- |     # prop (Proxy :: _ "month") (int segment)
+-- |     # prop (Proxy :: _ "day") (int segment)
 -- |
 -- | parse (path "blog" date) "blog/2019/1/2" ==
 -- |   Right { year: 2019, month: 1, day: 2 }
@@ -314,12 +314,12 @@ record :: forall r. RouteDuplex r {}
 record = RouteDuplex mempty (pure {})
 
 -- | See `record`.
-prop :: forall sym a b r1 r2 r3 rx.
+prop :: forall proxy sym a b r1 r2 r3 rx.
   IsSymbol sym =>
   Row.Cons sym a rx r1 =>
   Row.Cons sym b r2 r3 =>
   Row.Lacks sym r2 =>
-  SProxy sym ->
+  proxy sym ->
   RouteDuplex a b ->
   RouteDuplex { | r1 } { | r2 } ->
   RouteDuplex { | r1 } { | r3 }
@@ -351,11 +351,11 @@ instance routeDuplexParams ::
   RouteDuplexParams r1 r2 where
   params r =
     record
-      # buildParams (RLProxy :: RLProxy rl) r
+      # buildParams (Proxy :: Proxy rl) r
 
 class RouteDuplexBuildParams (rl :: RowList Type) (r1 :: Row Type) (r2 :: Row Type) (r3 :: Row Type) (r4 :: Row Type) | rl -> r1 r2 r3 r4 where
   buildParams ::
-    RLProxy rl ->
+    Proxy rl ->
     { | r1 } ->
     RouteDuplex { | r2 } { | r3 } ->
     RouteDuplex { | r2 } { | r4 }
@@ -372,9 +372,9 @@ instance buildParamsCons ::
   buildParams _ r prev =
     prev
       # prop sym ((Record.get sym r) (param (reflectSymbol sym)))
-      # buildParams (RLProxy :: RLProxy rest) r
+      # buildParams (Proxy :: Proxy rest) r
     where
-    sym = SProxy :: SProxy sym
+    sym = Proxy :: Proxy sym
 
 instance buildParamsNil ::
   RouteDuplexBuildParams Nil r1 r2 r3 r3 where
