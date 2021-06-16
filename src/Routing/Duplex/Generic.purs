@@ -5,10 +5,11 @@ import Prelude
 import Control.Alt ((<|>))
 import Data.Generic.Rep (class Generic, Argument(..), Constructor(..), NoArguments(..), Product(..), Sum(..), from, to)
 import Data.Profunctor (dimap)
-import Data.Symbol (class IsSymbol, SProxy(..))
+import Data.Symbol (class IsSymbol)
 import Prim.Row as Row
 import Record as Record
 import Routing.Duplex (RouteDuplex(..), RouteDuplex', end)
+import Type.Proxy (Proxy(..))
 
 sum :: forall a rep r.
   Generic a rep =>
@@ -45,7 +46,7 @@ instance gRouteConstructor ::
     RouteDuplex enc' dec' =
       end
         $ (gRouteDuplexCtr :: RouteDuplex' a -> RouteDuplex' b)
-        $ Record.get (SProxy :: SProxy sym) r
+        $ Record.get (Proxy :: Proxy sym) r
     enc (Constructor a) = enc' a
     dec = Constructor <$> dec'
 

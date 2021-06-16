@@ -6,7 +6,6 @@ import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
 import Data.String.Gen (genAlphaString)
-import Data.Symbol (SProxy(..))
 import Effect (Effect)
 import Routing.Duplex (RouteDuplex', flag, int, param, parse, print, record, rest, root, segment, string, (:=))
 import Routing.Duplex.Generic (noArgs)
@@ -15,6 +14,7 @@ import Routing.Duplex.Generic.Syntax ((/), (?))
 import Test.QuickCheck (Result(..), arbitrary, quickCheckGen, (===))
 import Test.QuickCheck.Gen (Gen, arrayOf, chooseInt)
 import Test.Unit (combinatorUnitTests)
+import Type.Proxy (Proxy(..))
 
 data TestRoute
   = Root
@@ -39,8 +39,8 @@ genTestRoute = do
     3 -> Bar <$> ({ id: _, search: _ } <$> genAlphaString <*> genAlphaString)
     _ -> Baz <$> genAlphaString <*> (arrayOf genAlphaString)
 
-_id = SProxy :: SProxy "id"
-_search = SProxy :: SProxy "search"
+_id = Proxy :: Proxy "id"
+_search = Proxy :: Proxy "search"
 
 route :: RouteDuplex' TestRoute
 route =
