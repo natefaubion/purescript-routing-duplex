@@ -314,12 +314,12 @@ record :: forall r. RouteDuplex r {}
 record = RouteDuplex mempty (pure {})
 
 -- | See `record`.
-prop :: forall proxy sym a b r1 r2 r3 rx.
+prop :: forall sym a b r1 r2 r3 rx.
   IsSymbol sym =>
   Row.Cons sym a rx r1 =>
   Row.Cons sym b r2 r3 =>
   Row.Lacks sym r2 =>
-  proxy sym ->
+  Proxy sym ->
   RouteDuplex a b ->
   RouteDuplex { | r1 } { | r2 } ->
   RouteDuplex { | r1 } { | r3 }
