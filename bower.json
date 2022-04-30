@@ -20,7 +20,6 @@
   },
   "devDependencies": {
     "purescript-psci-support": "^6.0.0",
-    "purescript-console": "^6.0.0",
     "purescript-effect": "^4.0.0",
     "purescript-assert": "^6.0.0",
     "purescript-quickcheck": "^8.0.0"

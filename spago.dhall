@@ -3,7 +3,6 @@
   [ "arrays"
   , "assert"
   , "bifunctors"
-  , "console"
   , "control"
   , "effect"
   , "either"
