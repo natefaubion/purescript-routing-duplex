@@ -52,7 +52,7 @@ import Type.Proxy (Proxy(..))
 -- | The core abstraction of this library. The values of this type can be used both for parsing
 -- | values of type `o` from `String` as well as printing values of type `i` into `String`.
 -- |
--- | For most purposes, you'll likely want `RouterDuplex'` which uses the same
+-- | For most purposes, you'll likely want `RouteDuplex'` which uses the same
 -- | type for both parameters.
 data RouteDuplex i o = RouteDuplex (i -> RoutePrinter) (RouteParser o)
 
