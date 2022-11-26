@@ -30,19 +30,19 @@ import Control.Lazy (class Lazy)
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Bifunctor (bimap, lmap)
+import Data.Bitraversable (bitraverse, ltraverse)
 import Data.Either (Either(..))
 import Data.Foldable (foldl, lookup)
 import Data.Generic.Rep (class Generic)
 import Data.Int as Int
 import Data.Lazy as Z
-import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import JSURI (decodeURIComponent)
-import Partial.Unsafe (unsafePartial)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
 data RouteResult a
@@ -60,6 +60,7 @@ data RouteError
   = Expected String String
   | ExpectedEndOfPath String
   | MissingParam String
+  | MalformedURIComponent String
   | EndOfPath
 
 derive instance eqRouteError :: Eq RouteError
@@ -160,27 +161,25 @@ runRouteParser = go
   goAlt state (Fail _) p = runRouteParser state p
   goAlt _ res _ = res
 
-parsePath :: String -> RouteState
+parsePath :: String -> Either RouteError RouteState
 parsePath =
   splitAt (flip Tuple "") "#"
-    >>> lmap splitPath
-    >>> toRouteState
+    >>> ltraverse splitPath
+    >>> map toRouteState
   where
   splitPath =
     splitAt (flip Tuple "") "?"
-      >>> bimap splitSegments splitParams
-
-  unsafeDecodeURIComponent = unsafePartial fromJust <<< decodeURIComponent
+      >>> bitraverse splitSegments splitParams
 
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
-    [ "", "" ] -> [ "" ]
-    xs -> map unsafeDecodeURIComponent xs
+    [ "", "" ] -> Right [ "" ]
+    xs -> traverse decodeURIComponent' xs
 
   splitParams =
-    splitNonEmpty (Pattern "&") >>> map splitKeyValue
+    splitNonEmpty (Pattern "&") >>> traverse splitKeyValue
 
   splitKeyValue =
-    splitAt (flip Tuple "") "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
+    splitAt (flip Tuple "") "=" >>> bitraverse decodeURIComponent' decodeURIComponent'
 
   splitNonEmpty _ "" = []
   splitNonEmpty p s = split p s
@@ -193,8 +192,12 @@ parsePath =
       Just ix -> Tuple (String.take ix str) (String.drop (ix + String.length p) str)
       Nothing -> k str
 
+  decodeURIComponent' str = case decodeURIComponent str of
+    Nothing -> Left (MalformedURIComponent str)
+    Just a -> Right a
+
 run :: forall a. RouteParser a -> String -> Either RouteError a
-run p = parsePath >>> flip runRouteParser p >>> case _ of
+run p = parsePath >=> flip runRouteParser p >>> case _ of
   Fail err -> Left err
   Success _ res -> Right res
 

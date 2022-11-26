@@ -6,7 +6,7 @@ import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Routing.Duplex (RouteDuplex', as, boolean, default, flag, hash, int, many, many1, optional, param, params, parse, path, prefix, print, prop, record, rest, root, segment, string, suffix)
-import Routing.Duplex.Parser (RouteError(..))
+import Routing.Duplex.Parser (RouteError(..), parsePath)
 import Test.Assert (assertEqual)
 import Type.Proxy (Proxy(..))
 
@@ -102,6 +102,10 @@ combinatorUnitTests = do
 
   -- params
   assertEqual { actual: parse search "?page=3&filter=Galaxy%20Quest", expected: Right { page: 3, filter: Just "Galaxy Quest" } }
+
+  -- Malformed URI component
+  assertEqual { actual: parsePath "https://example.com?keyword=%D0%BF%D0", expected: Left (MalformedURIComponent "%D0%BF%D0") }
+  assertEqual { actual: print (path "foo" segment) "\xdc11", expected: "foo" }
 
 data Sort = Asc | Desc
 
