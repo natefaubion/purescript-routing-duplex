@@ -2,7 +2,6 @@
 , dependencies =
   [ "arrays"
   , "assert"
-  , "bifunctors"
   , "control"
   , "effect"
   , "either"
@@ -12,7 +11,6 @@
   , "lazy"
   , "maybe"
   , "newtype"
-  , "partial"
   , "prelude"
   , "profunctor"
   , "quickcheck"

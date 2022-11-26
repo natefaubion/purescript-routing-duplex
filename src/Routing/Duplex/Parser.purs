@@ -30,19 +30,19 @@ import Control.Lazy (class Lazy)
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Bifunctor (bimap, lmap)
+import Data.Bitraversable (bitraverse, ltraverse)
 import Data.Either (Either(..))
 import Data.Foldable (foldl, lookup)
 import Data.Generic.Rep (class Generic)
 import Data.Int as Int
 import Data.Lazy as Z
-import Data.Maybe (Maybe(..), fromJust, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
+import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import JSURI (decodeURIComponent)
-import Partial.Unsafe (unsafePartial)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
 data RouteResult a
@@ -52,17 +52,22 @@ data RouteResult a
 derive instance eqRouteResult :: Eq a => Eq (RouteResult a)
 derive instance functorRouteResult :: Functor RouteResult
 derive instance genericRouteResult :: Generic (RouteResult a) _
-instance showRouteResult :: Show a => Show (RouteResult a) where show = genericShow
+
+instance showRouteResult :: Show a => Show (RouteResult a) where
+  show = genericShow
 
 data RouteError
   = Expected String String
   | ExpectedEndOfPath String
   | MissingParam String
+  | MalformedURIComponent String
   | EndOfPath
 
 derive instance eqRouteError :: Eq RouteError
 derive instance genericRouteError :: Generic RouteError _
-instance showRouteError :: Show RouteError where show = genericShow
+
+instance showRouteError :: Show RouteError where
+  show = genericShow
 
 data RouteParser a
   = Alt (NonEmptyArray (RouteParser a))
@@ -95,10 +100,11 @@ instance lazyRouteParser :: Lazy (RouteParser a) where
     where
     parser = Z.defer k
 
-altAppend :: forall a.
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a)
+altAppend
+  :: forall a
+   . NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
 altAppend ls rs
   | Prefix pre a <- NEA.last ls
   , Prefix pre' b <- NEA.head rs
@@ -109,23 +115,25 @@ altAppend ls rs
       in
         case NEA.fromArray (NEA.init ls) of
           Just ls' -> ls' `altAppend` rs'
-          Nothing  -> rs'
+          Nothing -> rs'
   | otherwise = ls <> rs
 
-altCons :: forall a.
-  RouteParser a ->
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a)
+altCons
+  :: forall a
+   . RouteParser a
+  -> NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
 altCons (Prefix pre a) rs
   | Prefix pre' b <- NEA.head rs
   , pre == pre' =
       NEA.cons' (Prefix pre (a <|> b)) (NEA.tail rs)
 altCons a rs = NEA.cons a rs
 
-altSnoc :: forall a.
-  NonEmptyArray (RouteParser a) ->
-  RouteParser a ->
-  NonEmptyArray (RouteParser a)
+altSnoc
+  :: forall a
+   . NonEmptyArray (RouteParser a)
+  -> RouteParser a
+  -> NonEmptyArray (RouteParser a)
 altSnoc ls (Prefix pre b)
   | Prefix pre' a <- NEA.last ls
   , pre == pre' =
@@ -153,30 +161,28 @@ runRouteParser = go
   goAlt state (Fail _) p = runRouteParser state p
   goAlt _ res _ = res
 
-parsePath :: String -> RouteState
+parsePath :: String -> Either RouteError RouteState
 parsePath =
   splitAt (flip Tuple "") "#"
-    >>> lmap splitPath
-    >>> toRouteState
+    >>> ltraverse splitPath
+    >>> map toRouteState
   where
   splitPath =
     splitAt (flip Tuple "") "?"
-      >>> bimap splitSegments splitParams
-
-  unsafeDecodeURIComponent = unsafePartial fromJust <<< decodeURIComponent
+      >>> bitraverse splitSegments splitParams
 
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
-    ["", ""] -> [""]
-    xs -> map unsafeDecodeURIComponent xs
+    [ "", "" ] -> Right [ "" ]
+    xs -> traverse decodeURIComponent' xs
 
   splitParams =
-    splitNonEmpty (Pattern "&") >>> map splitKeyValue
+    splitNonEmpty (Pattern "&") >>> traverse splitKeyValue
 
   splitKeyValue =
-    splitAt (flip Tuple "") "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
+    splitAt (flip Tuple "") "=" >>> bitraverse decodeURIComponent' decodeURIComponent'
 
   splitNonEmpty _ "" = []
-  splitNonEmpty p s  = split p s
+  splitNonEmpty p s = split p s
 
   toRouteState (Tuple (Tuple segments params) h) =
     { segments, params, hash: h }
@@ -186,8 +192,12 @@ parsePath =
       Just ix -> Tuple (String.take ix str) (String.drop (ix + String.length p) str)
       Nothing -> k str
 
+  decodeURIComponent' str = case decodeURIComponent str of
+    Nothing -> Left (MalformedURIComponent str)
+    Just a -> Right a
+
 run :: forall a. RouteParser a -> String -> Either RouteError a
-run p = parsePath >>> flip runRouteParser p >>> case _ of
+run p = parsePath >=> flip runRouteParser p >>> case _ of
   Fail err -> Left err
   Success _ res -> Right res
 

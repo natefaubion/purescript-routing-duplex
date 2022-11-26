@@ -11,6 +11,7 @@ module Routing.Duplex
   , segment
   , param
   , flag
+  , hash
   , many1
   , many
   , rest
@@ -41,7 +42,7 @@ import Data.String (Pattern(..))
 import Data.String as String
 import Data.Symbol (class IsSymbol, reflectSymbol)
 import Prim.Row as Row
-import Prim.RowList (RowList, class RowToList, Cons, Nil)
+import Prim.RowList (class RowToList, Cons, Nil, RowList)
 import Record as Record
 import Routing.Duplex.Parser (RouteParser)
 import Routing.Duplex.Parser as Parser
@@ -167,7 +168,6 @@ segment = RouteDuplex Printer.put Parser.take
 param :: String -> RouteDuplex' String
 param p = RouteDuplex (Printer.param p) (Parser.param p)
 
-
 -- | Consumes or prints a query flag (i.e. parameter without value).
 -- | **Note:** that this combinator ignores the value of the parameter. It only cares about its presence/absence.
 -- | Presence is interpreted as `true`, absence as `false`.
@@ -185,6 +185,14 @@ flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   enc' _ = mempty
   dec' = Parser.default false (dec $> true)
 
+-- | Consumes or prints the URI hash segment.
+-- |
+-- | ```purescript
+-- | parse hash "abc#def" == Right "def"
+-- | ```
+hash :: RouteDuplex' String
+hash = RouteDuplex Printer.hash Parser.hash
+
 -- | Repeatedly applies a given codec to parse one or more values from path segments.
 -- | Parsing will fail if no segment can be parsed.
 -- |
@@ -192,12 +200,13 @@ flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
 -- | parse (many1 (int segment)) "1/2/3/x" == Right [1,2,3]
 -- | parse (many1 (int segment)) "x",      == Left (Expected "Int" "x") :: Either RouteError (Array Int)
 -- |```
-many1 :: forall f a b.
-  Foldable f =>
-  Alt f =>
-  Applicative f =>
-  RouteDuplex a b ->
-  RouteDuplex (f a) (f b)
+many1
+  :: forall f a b
+   . Foldable f
+  => Alt f
+  => Applicative f
+  => RouteDuplex a b
+  -> RouteDuplex (f a) (f b)
 many1 (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many1 dec)
 
 -- | Similar to `many1`, except also succeeds when no values can be parsed.
@@ -206,11 +215,12 @@ many1 (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many1 dec)
 -- | parse (many (int segment)) "1/2/3/x" == Right [1,2,3]
 -- | parse (many (int segment)) "x",      == Right []
 -- |```
-many :: forall f a b.
-  Foldable f =>
-  Alternative f =>
-  RouteDuplex a b ->
-  RouteDuplex (f a) (f b)
+many
+  :: forall f a b
+   . Foldable f
+  => Alternative f
+  => RouteDuplex a b
+  -> RouteDuplex (f a) (f b)
 many (RouteDuplex enc dec) = RouteDuplex (foldMap enc) (Parser.many dec)
 
 -- | Consumes or prints all the remaining segments.
@@ -314,15 +324,16 @@ record :: forall r. RouteDuplex r {}
 record = RouteDuplex mempty (pure {})
 
 -- | See `record`.
-prop :: forall sym a b r1 r2 r3 rx.
-  IsSymbol sym =>
-  Row.Cons sym a rx r1 =>
-  Row.Cons sym b r2 r3 =>
-  Row.Lacks sym r2 =>
-  Proxy sym ->
-  RouteDuplex a b ->
-  RouteDuplex { | r1 } { | r2 } ->
-  RouteDuplex { | r1 } { | r3 }
+prop
+  :: forall sym a b r1 r2 r3 rx
+   . IsSymbol sym
+  => Row.Cons sym a rx r1
+  => Row.Cons sym b r2 r3
+  => Row.Lacks sym r2
+  => Proxy sym
+  -> RouteDuplex a b
+  -> RouteDuplex { | r1 } { | r2 }
+  -> RouteDuplex { | r1 } { | r3 }
 prop sym (RouteDuplex f g) (RouteDuplex x y) =
   RouteDuplex (\r -> x r <> f (Record.get sym r)) (flip (Record.insert sym) <$> y <*> g)
 
@@ -354,11 +365,11 @@ instance routeDuplexParams ::
       # buildParams (Proxy :: Proxy rl) r
 
 class RouteDuplexBuildParams (rl :: RowList Type) (r1 :: Row Type) (r2 :: Row Type) (r3 :: Row Type) (r4 :: Row Type) | rl -> r1 r2 r3 r4 where
-  buildParams ::
-    Proxy rl ->
-    { | r1 } ->
-    RouteDuplex { | r2 } { | r3 } ->
-    RouteDuplex { | r2 } { | r4 }
+  buildParams
+    :: Proxy rl
+    -> { | r1 }
+    -> RouteDuplex { | r2 } { | r3 }
+    -> RouteDuplex { | r2 } { | r4 }
 
 instance buildParamsCons ::
   ( IsSymbol sym
@@ -378,4 +389,4 @@ instance buildParamsCons ::
 
 instance buildParamsNil ::
   RouteDuplexBuildParams Nil r1 r2 r3 r3 where
-    buildParams _ _ = identity
+  buildParams _ _ = identity

@@ -4,29 +4,34 @@ on:
   push:
     branches: [master]
   pull_request:
-    branches: [master]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
 
       - uses: purescript-contrib/setup-purescript@main
-
-      - uses: actions/setup-node@v2
         with:
-          node-version: "14"
+          purescript: "0.15.6"
+          spago: "0.20.9"
+          psa: "0.8.2"
+          purs-tidy: "latest"
 
-      - name: Install dependencies
-        run: |
-          npm install -g bower
-          npm install
-          bower install --production
+      - name: Cache PureScript dependencies
+        uses: actions/cache@v2
+        with:
+          key: ${{ runner.os }}-spago-${{ hashFiles('**/*.dhall') }}
+          path: |
+            .spago
+            output
+
       - name: Build source
-        run: spago build
+        run: spago build --purs-args '--censor-lib --strict'
 
       - name: Run tests
-        run: |
-          bower install
-          spago test
+        run: spago test
+
+      - name: Check formatting
+        run: purs-tidy check src test

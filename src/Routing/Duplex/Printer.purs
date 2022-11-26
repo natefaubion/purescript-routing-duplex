@@ -12,12 +12,11 @@ import Prelude
 
 import Data.Array as Array
 import Data.Function (applyFlipped)
-import Data.Maybe (fromJust)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype, unwrap)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..), uncurry)
 import JSURI (encodeURIComponent)
-import Partial.Unsafe (unsafePartial)
 import Routing.Duplex.Types (RouteState, emptyRouteState)
 
 newtype RoutePrinter = RoutePrinter (RouteState -> RouteState)
@@ -51,17 +50,15 @@ printPath :: RouteState -> String
 printPath { segments, params, hash: hash' } =
   printSegments segments <> printParams params <> printHash hash'
   where
-  unsafeEncodeURIComponent = unsafePartial fromJust <<< encodeURIComponent
-
   printSegments = case _ of
-    [""] -> "/"
-    xs -> joinWith "/" $ map unsafeEncodeURIComponent xs
+    [ "" ] -> "/"
+    xs -> joinWith "/" $ Array.mapMaybe encodeURIComponent xs
 
   printParams [] = ""
-  printParams ps = "?" <> joinWith "&" (uncurry printParam <$> ps)
+  printParams ps = "?" <> joinWith "&" (Array.mapMaybe (uncurry printParam) ps)
 
-  printParam key ""  = unsafeEncodeURIComponent key
-  printParam key val = unsafeEncodeURIComponent key <> "=" <> unsafeEncodeURIComponent val
+  printParam key "" = encodeURIComponent key
+  printParam key val = encodeURIComponent key <> Just "=" <> encodeURIComponent val
 
   printHash "" = ""
-  printHash h  = "#" <> h
+  printHash h = "#" <> h
