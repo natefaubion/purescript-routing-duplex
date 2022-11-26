@@ -5,7 +5,7 @@ import Prelude
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Effect (Effect)
-import Routing.Duplex (RouteDuplex', as, boolean, default, flag, int, many, many1, optional, param, params, parse, path, prefix, print, prop, record, rest, root, segment, string, suffix)
+import Routing.Duplex (RouteDuplex', as, boolean, default, flag, hash, int, many, many1, optional, param, params, parse, path, prefix, print, prop, record, rest, root, segment, string, suffix)
 import Routing.Duplex.Parser (RouteError(..))
 import Test.Assert (assertEqual)
 import Type.Proxy (Proxy(..))
@@ -48,6 +48,9 @@ combinatorUnitTests = do
   assertEqual { actual: parse (param "search") "?search=keyword", expected: Right "keyword" }
   assertEqual { actual: parse (param "search") "/", expected: Left (MissingParam "search") }
   assertEqual { actual: parse (optional (param "search")) "/", expected: Right Nothing }
+
+  -- hash
+  assertEqual { actual: parse hash "abc#def", expected: Right "def" }
 
   -- suffix
   assertEqual { actual: parse (suffix segment "latest") "release/latest", expected: Right "release" }

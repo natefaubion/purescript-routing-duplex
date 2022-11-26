@@ -11,6 +11,7 @@ module Routing.Duplex
   , segment
   , param
   , flag
+  , hash
   , many1
   , many
   , rest
@@ -183,6 +184,14 @@ flag (RouteDuplex enc dec) = RouteDuplex enc' dec'
   enc' true = enc ""
   enc' _ = mempty
   dec' = Parser.default false (dec $> true)
+
+-- | Consumes or prints the URI hash segment.
+-- |
+-- | ```purescript
+-- | parse hash "abc#def" == Right "def"
+-- | ```
+hash :: RouteDuplex' String
+hash = RouteDuplex Printer.hash Parser.hash
 
 -- | Repeatedly applies a given codec to parse one or more values from path segments.
 -- | Parsing will fail if no segment can be parsed.
