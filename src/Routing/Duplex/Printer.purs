@@ -54,14 +54,14 @@ printPath { segments, params, hash: hash' } =
   unsafeEncodeURIComponent = unsafePartial fromJust <<< encodeURIComponent
 
   printSegments = case _ of
-    [""] -> "/"
+    [ "" ] -> "/"
     xs -> joinWith "/" $ map unsafeEncodeURIComponent xs
 
   printParams [] = ""
   printParams ps = "?" <> joinWith "&" (uncurry printParam <$> ps)
 
-  printParam key ""  = unsafeEncodeURIComponent key
+  printParam key "" = unsafeEncodeURIComponent key
   printParam key val = unsafeEncodeURIComponent key <> "=" <> unsafeEncodeURIComponent val
 
   printHash "" = ""
-  printHash h  = "#" <> h
+  printHash h = "#" <> h

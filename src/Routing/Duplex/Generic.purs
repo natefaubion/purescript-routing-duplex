@@ -11,11 +11,12 @@ import Record as Record
 import Routing.Duplex (RouteDuplex(..), RouteDuplex', end)
 import Type.Proxy (Proxy(..))
 
-sum :: forall a rep r.
-  Generic a rep =>
-  GRouteDuplex rep r =>
-  { | r } ->
-  RouteDuplex' a
+sum
+  :: forall a rep r
+   . Generic a rep
+  => GRouteDuplex rep r
+  => { | r }
+  -> RouteDuplex' a
 sum = dimap from to <<< gRouteDuplex
 
 class GRouteDuplex rep (r :: Row Type) | rep -> r where
@@ -56,32 +57,30 @@ class GRouteDuplexCtr a b | a -> b where
 instance gRouteProduct ::
   GRouteDuplexCtr (Product a b) (Product a b) where
   gRouteDuplexCtr = identity
-else
-instance gRouteNoArguments ::
+else instance gRouteNoArguments ::
   GRouteDuplexCtr NoArguments NoArguments where
   gRouteDuplexCtr = identity
-else
-instance gRouteArgument ::
+else instance gRouteArgument ::
   GRouteDuplexCtr (Argument a) (Argument a) where
   gRouteDuplexCtr = identity
-else
-instance gRouteAll ::
+else instance gRouteAll ::
   GRouteDuplexCtr a (Argument a) where
   gRouteDuplexCtr (RouteDuplex enc dec) =
     RouteDuplex (\(Argument a) -> enc a) (Argument <$> dec)
 
-product :: forall a b c.
-  GRouteDuplexCtr b c =>
-  RouteDuplex' a ->
-  RouteDuplex' b ->
-  RouteDuplex' (Product (Argument a) c)
+product
+  :: forall a b c
+   . GRouteDuplexCtr b c
+  => RouteDuplex' a
+  -> RouteDuplex' b
+  -> RouteDuplex' (Product (Argument a) c)
 product (RouteDuplex encl decl) l = RouteDuplex enc dec
   where
   RouteDuplex encr decr = gRouteDuplexCtr l
   enc (Product (Argument a) b) = encl a <> encr b
   dec = Product <$> (Argument <$> decl) <*> decr
 
-noArgs:: RouteDuplex' NoArguments
+noArgs :: RouteDuplex' NoArguments
 noArgs = pure NoArguments
 
 infixr 0 product as ~

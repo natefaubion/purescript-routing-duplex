@@ -24,7 +24,9 @@ data TestRoute
 
 derive instance eqTestRoute :: Eq TestRoute
 derive instance genericTestRoute :: Generic TestRoute _
-instance showTestRoute :: Show TestRoute where show = genericShow
+
+instance showTestRoute :: Show TestRoute where
+  show = genericShow
 
 genTestRoute :: Gen TestRoute
 genTestRoute = do
@@ -75,7 +77,9 @@ main = do
       Left err ->
         Failed $
           show err <> ":"
-            <> "\n  " <> show r
-            <> "\n  " <> show url
+            <> "\n  "
+            <> show r
+            <> "\n  "
+            <> show url
       Right r' ->
         r === r'

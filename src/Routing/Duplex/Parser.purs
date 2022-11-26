@@ -52,7 +52,9 @@ data RouteResult a
 derive instance eqRouteResult :: Eq a => Eq (RouteResult a)
 derive instance functorRouteResult :: Functor RouteResult
 derive instance genericRouteResult :: Generic (RouteResult a) _
-instance showRouteResult :: Show a => Show (RouteResult a) where show = genericShow
+
+instance showRouteResult :: Show a => Show (RouteResult a) where
+  show = genericShow
 
 data RouteError
   = Expected String String
@@ -62,7 +64,9 @@ data RouteError
 
 derive instance eqRouteError :: Eq RouteError
 derive instance genericRouteError :: Generic RouteError _
-instance showRouteError :: Show RouteError where show = genericShow
+
+instance showRouteError :: Show RouteError where
+  show = genericShow
 
 data RouteParser a
   = Alt (NonEmptyArray (RouteParser a))
@@ -95,10 +99,11 @@ instance lazyRouteParser :: Lazy (RouteParser a) where
     where
     parser = Z.defer k
 
-altAppend :: forall a.
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a)
+altAppend
+  :: forall a
+   . NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
 altAppend ls rs
   | Prefix pre a <- NEA.last ls
   , Prefix pre' b <- NEA.head rs
@@ -109,23 +114,25 @@ altAppend ls rs
       in
         case NEA.fromArray (NEA.init ls) of
           Just ls' -> ls' `altAppend` rs'
-          Nothing  -> rs'
+          Nothing -> rs'
   | otherwise = ls <> rs
 
-altCons :: forall a.
-  RouteParser a ->
-  NonEmptyArray (RouteParser a) ->
-  NonEmptyArray (RouteParser a)
+altCons
+  :: forall a
+   . RouteParser a
+  -> NonEmptyArray (RouteParser a)
+  -> NonEmptyArray (RouteParser a)
 altCons (Prefix pre a) rs
   | Prefix pre' b <- NEA.head rs
   , pre == pre' =
       NEA.cons' (Prefix pre (a <|> b)) (NEA.tail rs)
 altCons a rs = NEA.cons a rs
 
-altSnoc :: forall a.
-  NonEmptyArray (RouteParser a) ->
-  RouteParser a ->
-  NonEmptyArray (RouteParser a)
+altSnoc
+  :: forall a
+   . NonEmptyArray (RouteParser a)
+  -> RouteParser a
+  -> NonEmptyArray (RouteParser a)
 altSnoc ls (Prefix pre b)
   | Prefix pre' a <- NEA.last ls
   , pre == pre' =
@@ -166,7 +173,7 @@ parsePath =
   unsafeDecodeURIComponent = unsafePartial fromJust <<< decodeURIComponent
 
   splitSegments = splitNonEmpty (Pattern "/") >>> case _ of
-    ["", ""] -> [""]
+    [ "", "" ] -> [ "" ]
     xs -> map unsafeDecodeURIComponent xs
 
   splitParams =
@@ -176,7 +183,7 @@ parsePath =
     splitAt (flip Tuple "") "=" >>> bimap unsafeDecodeURIComponent unsafeDecodeURIComponent
 
   splitNonEmpty _ "" = []
-  splitNonEmpty p s  = split p s
+  splitNonEmpty p s = split p s
 
   toRouteState (Tuple (Tuple segments params) h) =
     { segments, params, hash: h }
