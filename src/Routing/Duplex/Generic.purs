@@ -11,26 +11,43 @@ import Record as Record
 import Routing.Duplex (RouteDuplex(..), RouteDuplex', end)
 import Type.Proxy (Proxy(..))
 
+-- | Builds a parser/printer from a record, where each record field corresponds
+-- | to a constructor name for your data type.
+-- |
+-- | Note: this implicitly inserts calls to `end` for each constructor, making
+-- | the parser only valid for parsing URI suffixes. To parse URI prefixes, or
+-- | to just have more explicit control, use `sumPrefix`.
 sum
   :: forall a rep r
    . Generic a rep
   => GRouteDuplex rep r
   => { | r }
   -> RouteDuplex' a
-sum = dimap from to <<< gRouteDuplex
+sum = dimap from to <<< gRouteDuplex end
+
+-- | A variation of `sum` that does not implicitly add an `end` to each branch.
+-- | This is useful for defining sub-parsers that may consume only some of the
+-- | URI segments, leaving the rest for subsequent parsers.
+sumPrefix
+  :: forall a rep r
+   . Generic a rep
+  => GRouteDuplex rep r
+  => { | r }
+  -> RouteDuplex' a
+sumPrefix = dimap from to <<< gRouteDuplex identity
 
 class GRouteDuplex rep (r :: Row Type) | rep -> r where
-  gRouteDuplex :: { | r } -> RouteDuplex' rep
+  gRouteDuplex :: (forall x y. RouteDuplex x y -> RouteDuplex x y) -> { | r } -> RouteDuplex' rep
 
 instance gRouteSum ::
   ( GRouteDuplex a r
   , GRouteDuplex b r
   ) =>
   GRouteDuplex (Sum a b) r where
-  gRouteDuplex r = RouteDuplex enc dec
+  gRouteDuplex end' r = RouteDuplex enc dec
     where
-    RouteDuplex encl decl = gRouteDuplex r
-    RouteDuplex encr decr = gRouteDuplex r
+    RouteDuplex encl decl = gRouteDuplex end' r
+    RouteDuplex encr decr = gRouteDuplex end' r
     enc = case _ of
       Inl a -> encl a
       Inr b -> encr b
@@ -42,10 +59,10 @@ instance gRouteConstructor ::
   , GRouteDuplexCtr a b
   ) =>
   GRouteDuplex (Constructor sym b) r where
-  gRouteDuplex r = RouteDuplex enc dec
+  gRouteDuplex end' r = RouteDuplex enc dec
     where
     RouteDuplex enc' dec' =
-      end
+      end'
         $ (gRouteDuplexCtr :: RouteDuplex' a -> RouteDuplex' b)
         $ Record.get (Proxy :: Proxy sym) r
     enc (Constructor a) = enc' a
