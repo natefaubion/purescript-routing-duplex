@@ -41,7 +41,9 @@ flag key val
   | otherwise = mempty
 
 hash :: String -> RoutePrinter
-hash h = RoutePrinter _ { hash = h }
+hash h
+  | h == "" = RoutePrinter _ { hash = Nothing }
+  | otherwise = RoutePrinter _ { hash = Just h }
 
 run :: RoutePrinter -> String
 run = printPath <<< applyFlipped emptyRouteState <<< unwrap
@@ -60,5 +62,5 @@ printPath { segments, params, hash: hash' } =
   printParam key "" = encodeURIComponent key
   printParam key val = encodeURIComponent key <> Just "=" <> encodeURIComponent val
 
-  printHash "" = ""
-  printHash h = "#" <> h
+  printHash Nothing = ""
+  printHash (Just h) = "#" <> h

@@ -51,6 +51,7 @@ combinatorUnitTests = do
 
   -- hash
   assertEqual { actual: parse hash "abc#def", expected: Right "def" }
+  assertEqual { actual: parse hash "abc", expected: Left MissingHash }
 
   -- suffix
   assertEqual { actual: parse (suffix segment "latest") "release/latest", expected: Right "release" }

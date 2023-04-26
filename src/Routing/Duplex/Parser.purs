@@ -42,6 +42,7 @@ import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested ((/\))
 import JSURI (decodeURIComponent)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
@@ -59,8 +60,10 @@ instance showRouteResult :: Show a => Show (RouteResult a) where
 data RouteError
   = Expected String String
   | ExpectedEndOfPath String
+  | ExpectedNoHash String
   | MissingParam String
   | MalformedURIComponent String
+  | MissingHash
   | EndOfPath
 
 derive instance eqRouteError :: Eq RouteError
@@ -185,7 +188,12 @@ parsePath =
   splitNonEmpty p s = split p s
 
   toRouteState (Tuple (Tuple segments params) h) =
-    { segments, params, hash: h }
+    { segments
+    , params
+    , hash: case h of
+        "" -> Nothing
+        h' -> Just h'
+    }
 
   splitAt k p str =
     case String.indexOf (Pattern p) str of
@@ -259,13 +267,16 @@ int :: String -> Either String Int
 int = maybe (Left "Int") Right <<< Int.fromString
 
 hash :: RouteParser String
-hash = Chomp \state -> Success state state.hash
+hash = Chomp \state -> case state.hash of
+  Nothing -> Fail MissingHash
+  Just h -> Success (state { hash = Nothing }) h
 
 end :: RouteParser Unit
 end = Chomp \state ->
-  case Array.head state.segments of
-    Nothing -> Success state unit
-    Just str -> Fail (ExpectedEndOfPath str)
+  case (Array.head state.segments /\ state.hash) of
+    (Nothing /\ Nothing) -> Success state unit
+    (Just str /\ _) -> Fail (ExpectedEndOfPath str)
+    (_ /\ Just h) -> Fail (ExpectedNoHash h)
 
 boolean :: String -> Either String Boolean
 boolean = case _ of
