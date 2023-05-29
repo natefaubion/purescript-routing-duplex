@@ -16,9 +16,20 @@ Let’s build a codec for a simple app with two routes: the homepage and user pr
 2. Build a codec using generics and combinators from `Routing.Duplex`
 
 ```purescript
-import Data.Generic.Rep (class Generic)
-import Routing.Duplex (RouteDuplex', path, root, segment, string)
+-- Full list of imports required for the complete example
+import Prelude
+
+import Data.Either (Either(..))
+import Data.Generic.Rep (class Generic, Argument)
+import Data.Lens.Iso.Newtype (_Newtype) -- need to: spago install profunctor-lenses
+import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
+import Data.Show.Generic (genericShow)
+import Routing.Duplex (RouteDuplex', as, boolean, int, optional, param, params, parse, path, print, record, root, segment, string, (:=))
+import Routing.Duplex.Generic (class GRouteDuplexCtr, noArgs, product, sum, (~))
 import Routing.Duplex.Generic as G
+import Routing.Duplex.Generic.Syntax ((/), (?))
+import Type.Proxy (Proxy(..))
 
 data Route = Home | Profile String
 
@@ -29,6 +40,10 @@ route = root $ G.sum
   { "Home": G.noArgs
   , "Profile": path "profile" (string segment)
   }
+
+-- for the repl
+instance showRoute :: Show Route where
+  show = genericShow
 ```
 
 With our codec in place we can parse browser locations (strings) into our routing data type:
@@ -46,6 +61,22 @@ And we can also serialize our routing data type into browser locations:
 ```shell
 print route $ Profile "jake-delhomme"
 > "/profile/jake-delhomme"
+
+print route $ Post (Username "bob") (Create)             
+> "/user/bob/post"
+
+print route $ Post (Username "bob") (Read (PostId 123))  
+> "/user/bob/post/123"
+
+print route $ Post (Username "bob") (Update (PostId 123))
+> "/user/bob/post/edit/123"
+```
+
+And round-trip:
+
+```shell
+parse route $ print route $ Post (Username "bob") (Update (PostId 123))
+(Right (Post "bob" (Update 123)))
 ```
 
 # How to use this library
@@ -64,9 +95,9 @@ type RouteDuplex' a = RouteDuplex a a
 
 This library exports a number of helper functions and combinators for constructing this codec with minimal boilerplate, mostly concentrated in two modules:
 
-- `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
+- `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators (eg. `root`, `segment`, `int`, `string`, `optional`) that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
 - `Routing.Duplex.Generic` exports helpers for deriving code via your data type’s `Generic` instance, most notably the `sum` function for describing a route as a sum type and the `product` and `noArgs` functions for working with product types.
-- `Routing.Duplex.Generic.Syntax` exports some symbols that can be used to write terse codecs similar to those found in string-based routers.
+- `Routing.Duplex.Generic.Syntax` exports some symbols (`(/)` & `(?)`) that can be used to write terse codecs similar to those found in string-based routers.
 
 # Examples
 
@@ -272,6 +303,10 @@ sortFromString = case _ of
   "asc" -> Right Asc
   "desc" -> Right Desc
   val -> Left $ "Not a sort: " <> val
+
+-- for the repl
+instance showSort :: Show Sort where
+  show = genericShow
 ```
 
 With these functions in place, it’s trivial to write a new combinator for our sorting data type:
@@ -295,7 +330,7 @@ derive instance genericRoute :: Generic Route _
 route :: RouteDuplex' Route
 route = root $ sum
   { ...
-  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
+  , "Feed": "feed" ? { search: optional <<< string, sorting: optional <<< sort }
   }
 ```
 
@@ -304,9 +339,11 @@ Next, lets make our `Route` data type better by providing newtypes to uniquely i
 ```purescript
 newtype Username = Username String
 derive instance newtypeUsername :: Newtype Username _
+derive newtype instance showUsername :: Show Username -- for the repl
 
 newtype PostId = PostId Int
 derive instance newtypePostId :: Newtype PostId _
+derive newtype instance showPostId :: Show PostId -- for the repl
 
 data Route
   = Root
@@ -334,7 +371,7 @@ route = root $ sum
   { "Root": noArgs
   , "Profile": "user" / uname
   , "Post": "user" / uname / "post" / postId
-  , "Feed": "feed" ? { search: optional, sorting: optional <<< sort }
+  , "Feed": "feed" ? { search: optional <<< string, sorting: optional <<< sort }
   }
 ```
 
@@ -351,6 +388,9 @@ data CRU a
   | Update a
 
 derive instance genericCRU :: Generic (CRU a) _
+
+instance showCRU :: Show a => Show (CRU a) where -- for the repl
+  show cru = genericShow cru
 ```
 
 Next, we’ll again use the `sum` function to write a codec for this sum type. We don’t know how to handle `a`, so we’ll accept a codec to handle it as an argument. We’d like to handle three cases:
@@ -362,7 +402,10 @@ Next, we’ll again use the `sum` function to write a codec for this sum type. W
 Exactly the same way we wrote a codec for our `Route` type we can write one for our new `CRU` type:
 
 ```purescript
-cru :: forall a. RouteDuplex' a -> RouteDuplex' (CRU a)
+
+-- See here about adding GRouteDuplexCtr constraint:  https://discord.com/channels/864614189094928394/867149806178664478/1107077263364726814
+cru :: forall a. GRouteDuplexCtr a (Argument a) => RouteDuplex' a -> RouteDuplex' (CRU a)
+-- cru :: forall a. RouteDuplex' a -> RouteDuplex' (CRU a)
 cru inner = sum
   { "Create": noArgs
   , "Read": inner
