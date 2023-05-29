@@ -17,7 +17,8 @@ Let’s build a codec for a simple app with two routes: the homepage and user pr
 
 ```purescript
 import Data.Generic.Rep (class Generic)
-import Routing.Duplex (RouteDuplex', path, root, segment, string)
+import Data.Show.Generic (genericShow)
+import Routing.Duplex (RouteDuplex', parse, print, path, root, segment, string)
 import Routing.Duplex.Generic as G
 
 data Route = Home | Profile String
@@ -29,6 +30,10 @@ route = root $ G.sum
   { "Home": G.noArgs
   , "Profile": path "profile" (string segment)
   }
+
+-- for the repl
+instance showRoute :: Show Route where
+  show = genericShow
 ```
 
 With our codec in place we can parse browser locations (strings) into our routing data type:
@@ -64,9 +69,9 @@ type RouteDuplex' a = RouteDuplex a a
 
 This library exports a number of helper functions and combinators for constructing this codec with minimal boilerplate, mostly concentrated in two modules:
 
-- `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
+- `Routing.Duplex` exports the `RouteDuplex` type, the `print` and `parse` functions, and combinators (eg. `root`, `segment`, `int`, `string`, `optional`) that represent constants (`“/post“`), segments (`/:id`), parameters (`?foo=`), prefixes and suffixes, optional values, and more.
 - `Routing.Duplex.Generic` exports helpers for deriving code via your data type’s `Generic` instance, most notably the `sum` function for describing a route as a sum type and the `product` and `noArgs` functions for working with product types.
-- `Routing.Duplex.Generic.Syntax` exports some symbols that can be used to write terse codecs similar to those found in string-based routers.
+- `Routing.Duplex.Generic.Syntax` exports some symbols (`(/)` & `(?)`) that can be used to write terse codecs similar to those found in string-based routers.
 
 # Examples
 
