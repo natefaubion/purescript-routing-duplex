@@ -61,6 +61,22 @@ And we can also serialize our routing data type into browser locations:
 ```shell
 print route $ Profile "jake-delhomme"
 > "/profile/jake-delhomme"
+
+print route $ Post (Username "bob") (Create)             
+> "/user/bob/post"
+
+print route $ Post (Username "bob") (Read (PostId 123))  
+> "/user/bob/post/123"
+
+print route $ Post (Username "bob") (Update (PostId 123))
+> "/user/bob/post/edit/123"
+```
+
+And round-trip:
+
+```shell
+parse route $ print route $ Post (Username "bob") (Update (PostId 123))
+(Right (Post "bob" (Update 123)))
 ```
 
 # How to use this library
