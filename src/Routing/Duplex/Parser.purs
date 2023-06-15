@@ -19,6 +19,7 @@ module Routing.Duplex.Parser
   , boolean
   , hash
   , end
+  , end'
   , module Routing.Duplex.Types
   ) where
 
@@ -61,6 +62,7 @@ data RouteError
   = Expected String String
   | ExpectedEndOfPath String
   | ExpectedNoHash String
+  | ExpectedNoParams RouteParams
   | MissingParam String
   | MalformedURIComponent String
   | MissingHash
@@ -221,7 +223,7 @@ take = Chomp \state ->
 param :: String -> RouteParser String
 param key = Chomp \state ->
   case lookup key state.params of
-    Just a -> Success state a
+    Just a -> Success (state { params = Array.delete (key /\ a) state.params }) a
     _ -> Fail $ MissingParam key
 
 flag :: String -> RouteParser Boolean
@@ -273,10 +275,17 @@ hash = Chomp \state -> case state.hash of
 
 end :: RouteParser Unit
 end = Chomp \state ->
-  case (Array.head state.segments /\ state.hash) of
-    (Nothing /\ Nothing) -> Success state unit
-    (Just str /\ _) -> Fail (ExpectedEndOfPath str)
-    (_ /\ Just h) -> Fail (ExpectedNoHash h)
+  case Array.head state.segments of
+    Nothing -> Success state unit
+    Just str -> Fail (ExpectedEndOfPath str)
+
+end' :: RouteParser Unit
+end' = Chomp \state ->
+  case (Array.head state.segments /\ state.hash /\ state.params) of
+    (Nothing /\ Nothing /\ []) -> Success state unit
+    (Just str /\ _ /\ _) -> Fail (ExpectedEndOfPath str)
+    (_ /\ Just h /\ _) -> Fail (ExpectedNoHash h)
+    (_ /\ _ /\ params) -> Fail (ExpectedNoParams params)
 
 boolean :: String -> Either String Boolean
 boolean = case _ of

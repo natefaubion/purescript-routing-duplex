@@ -8,7 +8,7 @@ import Data.Profunctor (dimap)
 import Data.Symbol (class IsSymbol)
 import Prim.Row as Row
 import Record as Record
-import Routing.Duplex (RouteDuplex(..), RouteDuplex', end)
+import Routing.Duplex (RouteDuplex(..), RouteDuplex', end, end')
 import Type.Proxy (Proxy(..))
 
 -- | Builds a parser/printer from a record, where each record field corresponds
@@ -24,6 +24,19 @@ sum
   => { | r }
   -> RouteDuplex' a
 sum = dimap from to <<< gRouteDuplex end
+
+-- | Builds a parser/printer from a record, where each record field corresponds
+-- | to a constructor name for your data type.
+-- |
+-- | Note: this implicitly inserts calls to `end'` for each constructor, making
+-- | the parser only valid for parsing URI suffixes. To parse URI prefixes, use `sumPrefix`.
+sum'
+  :: forall a rep r
+   . Generic a rep
+  => GRouteDuplex rep r
+  => { | r }
+  -> RouteDuplex' a
+sum' = dimap from to <<< gRouteDuplex end'
 
 -- | A variation of `sum` that does not implicitly add an `end` to each branch.
 -- | This is useful for defining sub-parsers that may consume only some of the
