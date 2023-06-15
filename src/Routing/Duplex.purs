@@ -8,6 +8,7 @@ module Routing.Duplex
   , path
   , root
   , end
+  , end'
   , segment
   , param
   , flag
@@ -140,6 +141,11 @@ root = path ""
 -- |```
 end :: forall a b. RouteDuplex a b -> RouteDuplex a b
 end (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end)
+
+-- | Strict version of `end codec` will only suceed if `codec` succeeds and there are no
+-- | additional path segments, hashes, parameters remaining to be processed.
+end' :: forall a b. RouteDuplex a b -> RouteDuplex a b
+end' (RouteDuplex enc dec) = RouteDuplex enc (dec <* Parser.end')
 
 -- | Consumes or prints a single path segment.
 -- | **Note:** [URI encoding and decoding](https://en.wikipedia.org/wiki/Percent-encoding) is done automatically.
