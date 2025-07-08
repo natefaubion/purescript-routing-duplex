@@ -17,6 +17,7 @@
   , "record"
   , "strings"
   , "tuples"
+  , "variant"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
