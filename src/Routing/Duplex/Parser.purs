@@ -42,7 +42,7 @@ import Data.String (Pattern(..), split)
 import Data.String.CodeUnits as String
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
-import JSURI (decodeURIComponent)
+import JSURI (decodeFormURLComponent, decodeURIComponent)
 import Routing.Duplex.Types (RouteParams, RouteState)
 
 data RouteResult a
@@ -179,7 +179,7 @@ parsePath =
     splitNonEmpty (Pattern "&") >>> traverse splitKeyValue
 
   splitKeyValue =
-    splitAt (flip Tuple "") "=" >>> bitraverse decodeURIComponent' decodeURIComponent'
+    splitAt (flip Tuple "") "=" >>> bitraverse decodeFormURLComponent' decodeFormURLComponent'
 
   splitNonEmpty _ "" = []
   splitNonEmpty p s = split p s
@@ -193,6 +193,10 @@ parsePath =
       Nothing -> k str
 
   decodeURIComponent' str = case decodeURIComponent str of
+    Nothing -> Left (MalformedURIComponent str)
+    Just a -> Right a
+
+  decodeFormURLComponent' str = case decodeFormURLComponent str of
     Nothing -> Left (MalformedURIComponent str)
     Just a -> Right a
 
