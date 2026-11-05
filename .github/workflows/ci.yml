@@ -12,23 +12,27 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - uses: purescript-contrib/setup-purescript@main
         with:
           purescript: "0.15.6"
-          spago: "0.20.9"
+          spago: "1.0.5"
           psa: "0.8.2"
           purs-tidy: "latest"
 
       - name: Cache PureScript dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
-          key: ${{ runner.os }}-spago-${{ hashFiles('**/*.dhall') }}
+          key: ${{ runner.os }}-spago-${{ hashFiles('**/spago.yaml') }}
           path: |
             .spago
             output
 
       - name: Build source
-        run: spago build --purs-args '--censor-lib --strict'
+        run: spago build --strict
 
       - name: Run tests
         run: spago test
